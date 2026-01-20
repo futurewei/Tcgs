@@ -70,7 +70,7 @@ const rules: FormRules = {
 };
 
 const eligibleDRIs = computed(() =>
-  usersStore.users.filter(u => u.role !== 'EXTERNAL' && u.role !== 'CUSTOMER')
+  usersStore.users.filter(u => u.role !== 'CUSTOMER')
 );
 
 watch(() => props.modelValue, (open) => {

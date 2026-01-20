@@ -25,7 +25,7 @@
             <el-tag :type="resultType" size="large">{{ topic.result }}</el-tag>
           </div>
 
-          <!-- Stage Timeline (Full Version) -->
+          <!-- Stage Timeline -->
           <div class="mt-6">
             <p class="text-sm font-medium text-zinc-500 mb-3">Stage Progress</p>
             <StageTimeline
@@ -48,6 +48,7 @@
           <div class="prose prose-sm max-w-none">
             <p>{{ topic.description }}</p>
           </div>
+
           <!-- Requester Information -->
           <div class="mt-4 pt-4 border-t border-zinc-200">
             <div class="flex items-center gap-2">
@@ -180,12 +181,14 @@
               </el-button>
             </div>
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 bg-zinc-200 rounded-full flex items-center justify-center font-medium text-zinc-600">
-                {{ getInitials(topic.dri?.name) }}
+              <div
+                class="w-10 h-10 bg-zinc-200 rounded-full flex items-center justify-center font-medium text-zinc-600"
+              >
+                {{ getInitials(driName) }}
               </div>
               <div>
-                <p class="font-medium text-zinc-900">{{ topic.dri?.name }}</p>
-                <p class="text-xs text-zinc-500">{{ topic.dri?.email }}</p>
+                <p class="font-medium text-zinc-900">{{ driName }}</p>
+                <p class="text-xs text-zinc-500">{{ driEmail }}</p>
               </div>
             </div>
           </div>
@@ -198,27 +201,26 @@
                 Add
               </el-button>
             </div>
+
             <div class="space-y-2">
-              
-		<div
-  		v-for="binding in ((topic as any).bindings || (topic as any).capacity_bindings || [])"
-  		:key="binding.id"
-  		class="flex items-center justify-between"
-		>
-  		<template v-if="binding.slot">
-   		 <SlotChip :slot="binding.slot" :binding-percentage="binding.percentage" />
-  		</template>
-  		<template v-else>
-    		<div class="text-sm text-zinc-500">Slot: (not loaded)</div>
-  		</template>
+              <div
+                v-for="binding in dedupBindings"
+                :key="binding.id"
+                class="flex items-center justify-between"
+              >
+                <SlotChip
+                  :slot="resolveSlot(binding)"
+                  :binding-percentage="binding.percentage"
+                  show-percentage
+                />
 
- 		 <div class="flex items-center gap-2">
-   		 <span class="text-sm font-medium">{{ binding.percentage }}%</span>
-   		 <el-tag v-if="binding.isForced" type="warning" size="small">Forced</el-tag>
-  		</div>
-		</div>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium">{{ binding.percentage }}%</span>
+                  <el-tag v-if="binding.isForced" type="warning" size="small">Forced</el-tag>
+                </div>
+              </div>
 
-		<p v-if="!(((topic as any).bindings || (topic as any).capacity_bindings || []).length)" class="text-sm text-zinc-400">
+              <p v-if="!dedupBindings.length" class="text-sm text-zinc-400">
                 No capacity bindings
               </p>
             </div>
@@ -266,7 +268,7 @@
     <AddBindingDialog
       v-model="showAddBinding"
       :topic-id="topicId"
-      @created="refreshTopic"
+      @created="afterBindingChanged"
     />
   </div>
 </template>
@@ -276,6 +278,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useTopicsStore } from '@/stores/topics';
 import { useAuthStore } from '@/stores/auth';
+import { useCapacityStore } from '@/stores/capacity';
 import { ArrowLeft } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import StageTimeline from '@/components/topic/StageTimeline.vue';
@@ -291,6 +294,7 @@ const route = useRoute();
 const router = useRouter();
 const topicsStore = useTopicsStore();
 const authStore = useAuthStore();
+const capacityStore = useCapacityStore();
 
 const topicId = computed(() => Number(route.params.id));
 const topic = computed(() => topicsStore.currentTopic);
@@ -304,10 +308,7 @@ const showChangeDRI = ref(false);
 const showAddBinding = ref(false);
 const recentAuditLogs = ref<AuditLog[]>([]);
 
-/**
- * ✅ 兼容 snake_case (后端) 与 camelCase (前端 types)
- * 后端返回: current_stage_id, stage_states
- */
+/** ✅ snake_case / camelCase 兼容 */
 const currentStageId = computed<number | undefined>(() => {
   const t: any = topic.value;
   return t?.currentStageId ?? t?.current_stage_id;
@@ -323,9 +324,6 @@ const selectedStage = computed(() => {
   return topic.value.template.stages.find(s => s.id === selectedStageId.value) || null;
 });
 
-/**
- * artifacts / reviews 字段也做兼容（有的后端是 stage_id）
- */
 const stageArtifacts = computed<Artifact[]>(() => {
   if (!selectedStageId.value) return [];
   const t: any = topic.value;
@@ -341,10 +339,7 @@ const stageReviews = computed<ReviewComment[]>(() => {
 });
 
 const canEdit = computed(() => {
-  // CUSTOMER cannot edit
-  if (authStore.isCustomer) {
-    return false;
-  }
+  if (authStore.isCustomer) return false;
   const t: any = topic.value;
   const driId = t?.driId ?? t?.dri_id;
   return authStore.isAdmin || driId === authStore.user?.id;
@@ -386,6 +381,72 @@ async function refreshTopic() {
   await topicsStore.fetchTopic(topicId.value);
 }
 
+/** ✅ AddBindingDialog 创建/更新后：topic + slots 都刷新，保证 used/remaining 正确 */
+async function afterBindingChanged() {
+  await Promise.all([topicsStore.fetchTopic(topicId.value), capacityStore.fetchSlots()]);
+}
+
+/** ✅ DRI 兼容字段 */
+const driName = computed(() => {
+  const t: any = topic.value;
+  return t?.dri?.name ?? t?.driName ?? t?.dri_name ?? '';
+});
+const driEmail = computed(() => {
+  const t: any = topic.value;
+  return t?.dri?.email ?? t?.driEmail ?? t?.dri_email ?? '';
+});
+
+/** ✅ requester 兼容 */
+const requesterName = computed(() => {
+  const t: any = topic.value;
+  return t?.requesterName ?? t?.requester_name ?? '';
+});
+const requesterUserId = computed(() => {
+  const t: any = topic.value;
+  return t?.requesterUserId ?? t?.requester_user_id;
+});
+
+/**
+ * ✅ bindings 兼容：bindings / capacity_bindings
+ * ✅ 去重：同 slotId 只显示一条（优先保留“percentage 最大”的那条）
+ */
+const dedupBindings = computed<any[]>(() => {
+  const t: any = topic.value;
+  const arr = (t?.bindings ?? t?.capacity_bindings ?? []) as any[];
+
+  const bestBySlot = new Map<number, any>();
+  for (const b of arr) {
+    const sid = Number(b.slotId ?? b.slot_id ?? b.slot?.id);
+    if (!sid) continue;
+
+    const normalized = {
+      ...b,
+      slotId: b.slotId ?? b.slot_id ?? b.slot?.id,
+      topicId: b.topicId ?? b.topic_id ?? t?.id,
+    };
+
+    const prev = bestBySlot.get(sid);
+    if (!prev) {
+      bestBySlot.set(sid, normalized);
+      continue;
+    }
+    // 选更“像正确”的一条：percentage 更大优先（你也可换成按 id 更大）
+    if (Number(normalized.percentage || 0) >= Number(prev.percentage || 0)) {
+      bestBySlot.set(sid, normalized);
+    }
+  }
+
+  return Array.from(bestBySlot.values());
+});
+
+/**
+ * ✅ SlotChip 要用 capacityStore 里的 slot（带 slot.bindings 才能算 used/remaining）
+ */
+function resolveSlot(binding: any) {
+  const sid = Number(binding.slotId ?? binding.slot_id ?? binding.slot?.id);
+  return capacityStore.slots.find(s => s.id === sid) ?? binding.slot;
+}
+
 async function advanceToNextStage() {
   if (!topic.value?.template?.stages) return;
   const nextStage = topic.value.template.stages[currentStageIndex.value + 1];
@@ -393,8 +454,6 @@ async function advanceToNextStage() {
 
   try {
     await topicsStore.advanceStage(topicId.value, nextStage.id);
-    // advanceStage 结束后 store 里应该已经更新 currentTopic，
-    // 这里再强制拉一次，保证 stage_states 与 current_stage_id 更新到位
     await topicsStore.fetchTopic(topicId.value);
 
     selectedStageId.value = nextStage.id;
@@ -438,16 +497,6 @@ function renderMarkdown(content: string) {
     .replace(/\n/g, '<br>');
 }
 
-const requesterName = computed(() => {
-  const t: any = topic.value;
-  return t?.requesterName ?? t?.requester_name ?? '';
-});
-
-const requesterUserId = computed(() => {
-  const t: any = topic.value;
-  return t?.requesterUserId ?? t?.requester_user_id;
-});
-
 watch(
   () => currentStageId.value,
   (stageId) => {
@@ -457,7 +506,8 @@ watch(
 );
 
 onMounted(async () => {
-  await topicsStore.fetchTopic(topicId.value);
+  // ✅ 先拉 slots，再拉 topic：确保 SlotChip tooltip used/remaining 不会 0
+  await Promise.all([capacityStore.fetchSlots(), topicsStore.fetchTopic(topicId.value)]);
 
   const cid = currentStageId.value;
   if (cid) {

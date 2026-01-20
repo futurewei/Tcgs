@@ -138,6 +138,25 @@ export const useTopicsStore = defineStore('topics', () => {
     }
   }
 
+function removeBindingLocal(bindingId: number) {
+  for (const t of topics.value) {
+    if (!t.bindings?.length) continue;
+    const idx = t.bindings.findIndex((b) => b.id === bindingId);
+    if (idx >= 0) {
+      t.bindings.splice(idx, 1);
+      return; // 找到就退出
+    }
+  }
+}
+
+function addBindingLocal(topicId: number, binding: any) {
+  const t = topics.value.find((x) => x.id === topicId);
+  if (!t) return;
+  if (!t.bindings) t.bindings = [];
+  t.bindings.push(binding);
+}
+
+
   return {
     topics,
     currentTopic,
@@ -152,5 +171,7 @@ export const useTopicsStore = defineStore('topics', () => {
     updateTopic,
     deleteTopic,
     advanceStage,
+    removeBindingLocal,   
+    addBindingLocal,
   };
 });

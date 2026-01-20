@@ -197,7 +197,7 @@ const selectedTemplate = computed(() =>
 
 // EXTERNAL and CUSTOMER users cannot be DRI
 const eligibleDRIs = computed(() =>
-  usersStore.users.filter(u => u.role !== 'EXTERNAL' && u.role !== 'CUSTOMER')
+  usersStore.users.filter(u => u.role !== 'CUSTOMER')
 );
 
 // CUSTOMER users for requester selection

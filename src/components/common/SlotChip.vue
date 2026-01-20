@@ -34,9 +34,7 @@ const props = defineProps<{
 const isExternal = computed(() => props.slot.type === 'EXTERNAL');
 
 const usagePercentage = computed(() => {
-  if (props.bindingPercentage !== undefined) {
-    return props.bindingPercentage;
-  }
+  if (props.bindingPercentage !== undefined) return props.bindingPercentage;
   return props.slot.bindings?.reduce((sum, b) => sum + b.percentage, 0) || 0;
 });
 
@@ -61,15 +59,7 @@ const tooltipContent = computed(() => {
     `Type: ${props.slot.type}`,
     `Usage: ${usagePercentage.value}%`,
   ];
-
-  if (props.slot.bindings?.length) {
-    lines.push(`Bound Topics: ${props.slot.bindings.length}`);
-  }
-
-  if (isExternal.value) {
-    lines.push('External cannot be DRI');
-  }
-
+  if (props.slot.bindings?.length) lines.push(`Bound Topics: ${props.slot.bindings.length}`);
   return lines.join(' | ');
 });
 </script>

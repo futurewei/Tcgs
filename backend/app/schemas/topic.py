@@ -4,6 +4,22 @@ from datetime import datetime
 from ..models.topic import TopicType, TopicResult, TopicUrgency, StageStatus
 from .user import UserResponse
 
+# backend/app/schemas/topic.py
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+from .capacity import SlotType
+
+class SlotRefResponse(BaseModel):
+    id: int
+    name: str
+    type: SlotType
+    user_id: Optional[int] = None
+    total_capacity: int = 100
+
+    class Config:
+        from_attributes = True
+
 
 class StageTemplateStageResponse(BaseModel):
     id: int
@@ -72,6 +88,7 @@ class BindingResponse(BaseModel):
     id: int
     topic_id: int
     slot_id: int
+    slot: Optional[SlotRefResponse] = None  # ✅  新增：前端 chip 需要
     percentage: int
     is_forced: bool
     created_at: datetime

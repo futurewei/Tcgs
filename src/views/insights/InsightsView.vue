@@ -194,7 +194,8 @@
     <div class="bg-white rounded-xl border border-zinc-200 p-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="font-semibold text-zinc-900">External Collaboration</h2>
-        <el-tag type="info" size="small">External cannot be DRI</el-tag>
+      <!-- 可选：如果你还想保留一个说明 -->
+	<!-- <el-tag type="success" size="small">External can be DRI</el-tag> -->
       </div>
       <el-table :data="externalCollabData" v-loading="loading">
         <el-table-column prop="userName" label="External Collaborator" min-width="150" />
