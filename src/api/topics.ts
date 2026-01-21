@@ -8,7 +8,10 @@ import type {
   ArtifactCreateRequest,
   ReviewComment,
   ReviewCreateRequest,
-  PaginatedResponse
+  PaginatedResponse,
+  StageDeliverable,
+  StageDeliverableCreateRequest,
+  ChangeDRIRequest
 } from '@/types';
 
 export interface TopicFilters {
@@ -28,6 +31,30 @@ function normalizeUser(u: any) {
     ...u,
     createdAt: u.created_at ?? u.createdAt,
     updatedAt: u.updated_at ?? u.updatedAt,
+  };
+}
+
+function normalizeSlot(s: any) {
+  if (!s) return s;
+  return {
+    ...s,
+    userId: s.user_id ?? s.userId,
+    totalCapacity: s.total_capacity ?? s.totalCapacity,
+    user: normalizeUser(s.user),
+  };
+}
+
+function normalizeBinding(b: any) {
+  if (!b) return b;
+  return {
+    ...b,
+    topicId: b.topic_id ?? b.topicId,
+    slotId: b.slot_id ?? b.slotId,
+    isForced: b.is_forced ?? b.isForced ?? false,
+    isDri: b.is_dri ?? b.isDri ?? false,
+    createdAt: b.created_at ?? b.createdAt,
+    updatedAt: b.updated_at ?? b.updatedAt,
+    slot: normalizeSlot(b.slot),
   };
 }
 
@@ -65,9 +92,14 @@ function normalizeStageState(ss: any) {
 
 function normalizeTopic(t: any): Topic {
   if (!t) return t;
+  
+  // Normalize bindings
+  const bindings = Array.isArray(t.bindings) 
+    ? t.bindings.map(normalizeBinding) 
+    : [];
+  
   return {
     ...t,
-    driId: t.dri_id ?? t.driId,
     templateId: t.template_id ?? t.templateId,
     currentStageId: t.current_stage_id ?? t.currentStageId,
     requesterName: t.requester_name ?? t.requesterName ?? '',
@@ -76,10 +108,11 @@ function normalizeTopic(t: any): Topic {
     stageStates: Array.isArray(t.stage_states)
       ? t.stage_states.map(normalizeStageState)
       : (Array.isArray(t.stageStates) ? t.stageStates.map(normalizeStageState) : t.stageStates),
-    dri: normalizeUser(t.dri),
     template: normalizeTemplate(t.template),
-    // 你后端如果也返回 bindings/artifacts/reviews，且字段是 snake_case，
-    // 建议后面也统一在这里 normalize（先不动也不影响"点灯/跳转"）
+    bindings,
+    // Legacy dri fields
+    driId: t.dri_id ?? t.driId,
+    dri: normalizeUser(t.dri),
   } as any;
 }
 
@@ -117,16 +150,16 @@ export const topicsApi = {
 
   create: async (data: TopicCreateRequest): Promise<Topic> => {
     const payload: any = {
-      ...data,
-      dri_id: (data as any).driId ?? (data as any).dri_id,
-      template_id: (data as any).templateId ?? (data as any).template_id,
-      requester_name: (data as any).requesterName ?? (data as any).requester_name,
-      requester_user_id: (data as any).requesterUserId ?? (data as any).requester_user_id,
+      title: data.title,
+      description: data.description,
+      type: data.type,
+      urgency: data.urgency,
+      template_id: data.templateId,
+      requester_name: data.requesterName,
+      requester_user_id: data.requesterUserId,
+      initial_dri_slot_id: data.initialDriSlotId,
+      initial_dri_percentage: data.initialDriPercentage,
     };
-    delete payload.driId;
-    delete payload.templateId;
-    delete payload.requesterName;
-    delete payload.requesterUserId;
 
     const response = await client.post<any>('/topics', payload);
     return normalizeTopic(response.data);
@@ -143,6 +176,19 @@ export const topicsApi = {
 
   advanceStage: async (id: number, stageId: number): Promise<Topic> => {
     const response = await client.post<any>(`/topics/${id}/stages/${stageId}/advance`);
+    return normalizeTopic(response.data);
+  },
+
+  backwardStage: async (id: number, stageId: number): Promise<Topic> => {
+    const response = await client.post<any>(`/topics/${id}/stages/${stageId}/backward`);
+    return normalizeTopic(response.data);
+  },
+
+  changeDri: async (id: number, data: ChangeDRIRequest): Promise<Topic> => {
+    const payload = {
+      new_dri_slot_id: data.newDriSlotId,
+    };
+    const response = await client.post<any>(`/topics/${id}/change-dri`, payload);
     return normalizeTopic(response.data);
   },
 
@@ -175,5 +221,55 @@ export const topicsApi = {
   createReview: async (data: ReviewCreateRequest): Promise<ReviewComment> => {
     const response = await client.post<ReviewComment>(`/topics/${data.topicId}/reviews`, data);
     return response.data;
+  },
+
+  // Stage Deliverables
+  listDeliverables: async (topicId: number, stageId?: number): Promise<StageDeliverable[]> => {
+    const params: any = {};
+    if (stageId) params.stage_id = stageId;
+    const response = await client.get<any[]>(`/topics/${topicId}/deliverables`, { params });
+    return response.data.map((d: any) => ({
+      ...d,
+      topicId: d.topic_id ?? d.topicId,
+      stageId: d.stage_id ?? d.stageId,
+      fileName: d.file_name ?? d.fileName,
+      fileSize: d.file_size ?? d.fileSize,
+      mimeType: d.mime_type ?? d.mimeType,
+      createdById: d.created_by_id ?? d.createdById,
+      createdBy: d.created_by ?? d.createdBy,
+      createdAt: d.created_at ?? d.createdAt,
+      updatedAt: d.updated_at ?? d.updatedAt,
+    }));
+  },
+
+  createDeliverable: async (topicId: number, data: StageDeliverableCreateRequest): Promise<StageDeliverable> => {
+    const payload: any = {
+      stage_id: data.stageId,
+      name: data.name,
+      type: data.type,
+      url: data.url,
+      description: data.description,
+      file_name: data.fileName,
+      file_size: data.fileSize,
+      mime_type: data.mimeType,
+    };
+    const response = await client.post<any>(`/topics/${topicId}/deliverables`, payload);
+    const d = response.data;
+    return {
+      ...d,
+      topicId: d.topic_id ?? d.topicId,
+      stageId: d.stage_id ?? d.stageId,
+      fileName: d.file_name ?? d.fileName,
+      fileSize: d.file_size ?? d.fileSize,
+      mimeType: d.mime_type ?? d.mimeType,
+      createdById: d.created_by_id ?? d.createdById,
+      createdBy: d.created_by ?? d.createdBy,
+      createdAt: d.created_at ?? d.createdAt,
+      updatedAt: d.updated_at ?? d.updatedAt,
+    };
+  },
+
+  deleteDeliverable: async (topicId: number, deliverableId: number): Promise<void> => {
+    await client.delete(`/topics/${topicId}/deliverables/${deliverableId}`);
   },
 };

@@ -1,24 +1,44 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func as sql_func
 from typing import Optional, List
 from math import ceil
+from datetime import datetime
 from ..database import get_db
 from ..models.user import User, UserRole
 from ..models.topic import Topic, TopicStageState, StageStatus
 from ..models.template import StageTemplate, StageTemplateStage
 from ..models.artifact import Artifact
 from ..models.review import ReviewComment
+from ..models.deliverable import StageDeliverable
+from ..models.capacity import Binding, CapacitySlot
 from ..models.audit import AuditAction
 from ..schemas.topic import (
     TopicCreate, TopicUpdate, TopicResponse,
     ArtifactCreate, ArtifactResponse,
-    ReviewCreate, ReviewResponse
+    ReviewCreate, ReviewResponse,
+    StageDeliverableCreate, StageDeliverableResponse,
+    ChangeDRIRequest
 )
 from ..schemas.common import PaginatedResponse
 from ..services.auth import get_current_user, get_current_admin
 from ..services.audit import AuditService
 
 router = APIRouter()
+
+
+def get_topic_with_relations(db: Session, topic_id: int):
+    """Helper to get topic with all relations loaded"""
+    return db.query(Topic).options(
+        joinedload(Topic.dri),
+        joinedload(Topic.requester_user),
+        joinedload(Topic.template).joinedload(StageTemplate.stages),
+        joinedload(Topic.stage_states).joinedload(TopicStageState.stage),
+        joinedload(Topic.artifacts).joinedload(Artifact.created_by),
+        joinedload(Topic.reviews).joinedload(ReviewComment.created_by),
+        joinedload(Topic.bindings).joinedload(Binding.slot).joinedload(CapacitySlot.user),
+        joinedload(Topic.deliverables).joinedload(StageDeliverable.created_by)
+    ).filter(Topic.id == topic_id).first()
 
 
 @router.get("", response_model=PaginatedResponse[TopicResponse])
@@ -37,7 +57,7 @@ def list_topics(
         joinedload(Topic.dri),
         joinedload(Topic.template).joinedload(StageTemplate.stages),
         joinedload(Topic.stage_states).joinedload(TopicStageState.stage),
-        joinedload(Topic.bindings)
+        joinedload(Topic.bindings).joinedload(Binding.slot)
     )
 
     if search:
@@ -52,7 +72,11 @@ def list_topics(
     if result:
         query = query.filter(Topic.result == result)
     if dri_id:
-        query = query.filter(Topic.dri_id == dri_id)
+        # Filter by DRI binding's slot user
+        query = query.join(Binding).join(CapacitySlot).filter(
+            Binding.is_dri == True,
+            CapacitySlot.user_id == dri_id
+        )
 
     total = query.count()
     topics = query.order_by(Topic.updated_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
@@ -72,16 +96,7 @@ def get_topic(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    topic = db.query(Topic).options(
-        joinedload(Topic.dri),
-        joinedload(Topic.requester_user),
-        joinedload(Topic.template).joinedload(StageTemplate.stages),
-        joinedload(Topic.stage_states).joinedload(TopicStageState.stage),
-        joinedload(Topic.artifacts).joinedload(Artifact.created_by),
-        joinedload(Topic.reviews).joinedload(ReviewComment.created_by),
-        joinedload(Topic.bindings)
-    ).filter(Topic.id == topic_id).first()
-
+    topic = get_topic_with_relations(db, topic_id)
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
     return topic
@@ -101,15 +116,6 @@ def create_topic(
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Only admin can create topics")
 
-    # Validate DRI is not EXTERNAL or CUSTOMER
-    dri = db.query(User).filter(User.id == topic_data.dri_id).first()
-    if not dri:
-        raise HTTPException(status_code=400, detail="DRI not found")
-    if dri.role == UserRole.EXTERNAL:
-        raise HTTPException(status_code=400, detail="EXTERNAL users cannot be DRI")
-    if dri.role == UserRole.CUSTOMER:
-        raise HTTPException(status_code=400, detail="CUSTOMER users cannot be DRI")
-
     # Validate requester
     requester_name = topic_data.requester_name
     if topic_data.requester_user_id is not None:
@@ -118,10 +124,8 @@ def create_topic(
             raise HTTPException(status_code=400, detail="Requester user not found")
         if requester_user.role != UserRole.CUSTOMER:
             raise HTTPException(status_code=400, detail="Only CUSTOMER users can be requester")
-        # Auto-fill requester_name from user name when requester_user_id is provided
         requester_name = requester_user.name
     else:
-        # If requester_user_id is None, requester_name must have value
         if not topic_data.requester_name or not topic_data.requester_name.strip():
             raise HTTPException(status_code=400, detail="requester_name is required when requester_user_id is not provided")
         requester_name = topic_data.requester_name.strip()
@@ -133,13 +137,12 @@ def create_topic(
     if not template:
         raise HTTPException(status_code=400, detail="Template not found")
 
-    # Create topic
+    # Create topic (without dri_id initially)
     topic = Topic(
         title=topic_data.title,
         description=topic_data.description,
         type=topic_data.type,
         urgency=topic_data.urgency,
-        dri_id=topic_data.dri_id,
         template_id=topic_data.template_id,
         requester_name=requester_name,
         requester_user_id=topic_data.requester_user_id,
@@ -158,13 +161,31 @@ def create_topic(
         if i == 0:
             topic.current_stage_id = stage.id
 
+    # If initial DRI slot is provided, create the first binding as DRI
+    if topic_data.initial_dri_slot_id:
+        slot = db.query(CapacitySlot).filter(CapacitySlot.id == topic_data.initial_dri_slot_id).first()
+        if not slot:
+            raise HTTPException(status_code=400, detail="Initial DRI slot not found")
+        
+        binding = Binding(
+            topic_id=topic.id,
+            slot_id=topic_data.initial_dri_slot_id,
+            percentage=topic_data.initial_dri_percentage,
+            is_dri=True
+        )
+        db.add(binding)
+        
+        # Also set legacy dri_id for backward compatibility
+        if slot.user_id:
+            topic.dri_id = slot.user_id
+
     db.commit()
     db.refresh(topic)
 
     AuditService.log(db, AuditAction.TOPIC_CREATE, "Topic", topic.id, current_user,
                      new_value={"title": topic.title, "type": topic.type.value})
 
-    return get_topic(topic.id, db, current_user)
+    return get_topic_with_relations(db, topic.id)
 
 
 @router.put("/{topic_id}", response_model=TopicResponse)
@@ -182,31 +203,14 @@ def update_topic(
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
 
-    # Check permissions
-    if current_user.role != UserRole.ADMIN and topic.dri_id != current_user.id:
+    # Check permissions - admin or DRI can update
+    dri_binding = next((b for b in topic.bindings if b.is_dri), None)
+    is_dri = dri_binding and dri_binding.slot and dri_binding.slot.user_id == current_user.id
+    
+    if current_user.role != UserRole.ADMIN and not is_dri:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     old_values = {}
-
-    # Handle DRI change
-    if topic_data.dri_id is not None and topic_data.dri_id != topic.dri_id:
-        if current_user.role != UserRole.ADMIN:
-            raise HTTPException(status_code=403, detail="Only admin can change DRI")
-
-        new_dri = db.query(User).filter(User.id == topic_data.dri_id).first()
-        if not new_dri:
-            raise HTTPException(status_code=400, detail="New DRI not found")
-        if new_dri.role == UserRole.EXTERNAL:
-            raise HTTPException(status_code=400, detail="EXTERNAL users cannot be DRI")
-        if new_dri.role == UserRole.CUSTOMER:
-            raise HTTPException(status_code=400, detail="CUSTOMER users cannot be DRI")
-
-        old_values["dri_id"] = topic.dri_id
-        topic.dri_id = topic_data.dri_id
-
-        AuditService.log(db, AuditAction.DRI_CHANGE, "Topic", topic.id, current_user,
-                         old_value={"dri_id": old_values["dri_id"]},
-                         new_value={"dri_id": topic.dri_id})
 
     # Handle result change
     if topic_data.result is not None and topic_data.result != topic.result:
@@ -227,7 +231,7 @@ def update_topic(
 
     db.commit()
 
-    return get_topic(topic.id, db, current_user)
+    return get_topic_with_relations(db, topic.id)
 
 
 @router.post("/{topic_id}/stages/{stage_id}/advance", response_model=TopicResponse)
@@ -237,16 +241,22 @@ def advance_stage(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """Advance to the next stage"""
     # CUSTOMER cannot advance stage
     if current_user.role == UserRole.CUSTOMER:
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot advance stage")
     
-    topic = db.query(Topic).filter(Topic.id == topic_id).first()
+    topic = db.query(Topic).options(
+        joinedload(Topic.bindings).joinedload(Binding.slot)
+    ).filter(Topic.id == topic_id).first()
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
 
     # Check permissions
-    if current_user.role != UserRole.ADMIN and topic.dri_id != current_user.id:
+    dri_binding = next((b for b in topic.bindings if b.is_dri), None)
+    is_dri = dri_binding and dri_binding.slot and dri_binding.slot.user_id == current_user.id
+    
+    if current_user.role != UserRole.ADMIN and not is_dri:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     # Mark current stage as done
@@ -256,6 +266,7 @@ def advance_stage(
     ).first()
     if current_state:
         current_state.status = StageStatus.DONE
+        current_state.completed_at = datetime.utcnow()
 
     # Activate new stage
     new_state = db.query(TopicStageState).filter(
@@ -271,10 +282,147 @@ def advance_stage(
     db.commit()
 
     AuditService.log(db, AuditAction.STAGE_CHANGE, "Topic", topic.id, current_user,
-                     old_value={"stage_id": old_stage_id},
+                     old_value={"stage_id": old_stage_id, "action": "advance"},
                      new_value={"stage_id": stage_id})
 
-    return get_topic(topic.id, db, current_user)
+    return get_topic_with_relations(db, topic.id)
+
+
+@router.post("/{topic_id}/stages/{stage_id}/backward", response_model=TopicResponse)
+def backward_stage(
+    topic_id: int,
+    stage_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Go back to a previous stage"""
+    # CUSTOMER cannot change stage
+    if current_user.role == UserRole.CUSTOMER:
+        raise HTTPException(status_code=403, detail="CUSTOMER users cannot change stage")
+    
+    topic = db.query(Topic).options(
+        joinedload(Topic.bindings).joinedload(Binding.slot),
+        joinedload(Topic.template).joinedload(StageTemplate.stages)
+    ).filter(Topic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    # Check permissions
+    dri_binding = next((b for b in topic.bindings if b.is_dri), None)
+    is_dri = dri_binding and dri_binding.slot and dri_binding.slot.user_id == current_user.id
+    
+    if current_user.role != UserRole.ADMIN and not is_dri:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Validate target stage exists and is before current stage
+    target_stage = next((s for s in topic.template.stages if s.id == stage_id), None)
+    if not target_stage:
+        raise HTTPException(status_code=400, detail="Target stage not found")
+    
+    current_stage = next((s for s in topic.template.stages if s.id == topic.current_stage_id), None)
+    if current_stage and target_stage.order >= current_stage.order:
+        raise HTTPException(status_code=400, detail="Can only go backward to previous stages")
+
+    # Mark current stage as pending (revert from active/done)
+    current_state = db.query(TopicStageState).filter(
+        TopicStageState.topic_id == topic_id,
+        TopicStageState.stage_id == topic.current_stage_id
+    ).first()
+    if current_state:
+        current_state.status = StageStatus.PENDING
+        current_state.completed_at = None
+
+    # Also mark all stages after target as pending
+    for stage in topic.template.stages:
+        if stage.order > target_stage.order:
+            state = db.query(TopicStageState).filter(
+                TopicStageState.topic_id == topic_id,
+                TopicStageState.stage_id == stage.id
+            ).first()
+            if state:
+                state.status = StageStatus.PENDING
+                state.completed_at = None
+
+    # Set target stage as active
+    target_state = db.query(TopicStageState).filter(
+        TopicStageState.topic_id == topic_id,
+        TopicStageState.stage_id == stage_id
+    ).first()
+    if target_state:
+        target_state.status = StageStatus.ACTIVE
+        target_state.completed_at = None
+
+    old_stage_id = topic.current_stage_id
+    topic.current_stage_id = stage_id
+
+    db.commit()
+
+    AuditService.log(db, AuditAction.STAGE_CHANGE, "Topic", topic.id, current_user,
+                     old_value={"stage_id": old_stage_id, "action": "backward"},
+                     new_value={"stage_id": stage_id})
+
+    return get_topic_with_relations(db, topic.id)
+
+
+@router.post("/{topic_id}/change-dri", response_model=TopicResponse)
+def change_dri(
+    topic_id: int,
+    request: ChangeDRIRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)
+):
+    """Change the DRI of a topic to a different slot/person"""
+    topic = db.query(Topic).options(
+        joinedload(Topic.bindings).joinedload(Binding.slot).joinedload(CapacitySlot.user)
+    ).filter(Topic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    # Validate new DRI slot exists
+    new_slot = db.query(CapacitySlot).options(
+        joinedload(CapacitySlot.user)
+    ).filter(CapacitySlot.id == request.new_dri_slot_id).first()
+    if not new_slot:
+        raise HTTPException(status_code=400, detail="New DRI slot not found")
+
+    # Find old DRI
+    old_dri_binding = next((b for b in topic.bindings if b.is_dri), None)
+    old_dri_name = None
+    if old_dri_binding and old_dri_binding.slot:
+        old_dri_name = old_dri_binding.slot.name
+
+    # Check if new slot already has a binding
+    existing_binding = next((b for b in topic.bindings if b.slot_id == request.new_dri_slot_id), None)
+
+    if existing_binding:
+        # Move DRI flag to existing binding
+        if old_dri_binding and old_dri_binding.id != existing_binding.id:
+            old_dri_binding.is_dri = False
+        existing_binding.is_dri = True
+    else:
+        # Create new binding with DRI flag
+        if old_dri_binding:
+            old_dri_binding.is_dri = False
+        
+        new_binding = Binding(
+            topic_id=topic_id,
+            slot_id=request.new_dri_slot_id,
+            percentage=25,  # Default percentage
+            is_dri=True
+        )
+        db.add(new_binding)
+
+    # Update legacy dri_id for backward compatibility
+    if new_slot.user_id:
+        topic.dri_id = new_slot.user_id
+
+    db.commit()
+
+    AuditService.log(db, AuditAction.DRI_CHANGE, "Topic", topic.id, current_user,
+                     old_value={"dri_slot": old_dri_name},
+                     new_value={"dri_slot": new_slot.name})
+
+    return get_topic_with_relations(db, topic.id)
 
 
 # Artifacts
@@ -357,7 +505,6 @@ def create_review(
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
 
-    # Reviews are append-only
     review = ReviewComment(
         topic_id=topic_id,
         stage_id=review_data.stage_id,
@@ -388,3 +535,105 @@ def delete_topic(
     db.commit()
 
     return {"message": "Topic deleted"}
+
+
+# Stage Deliverables
+@router.get("/{topic_id}/deliverables", response_model=List[StageDeliverableResponse])
+def list_deliverables(
+    topic_id: int,
+    stage_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List all deliverables for a topic, optionally filtered by stage"""
+    query = db.query(StageDeliverable).options(
+        joinedload(StageDeliverable.created_by)
+    ).filter(StageDeliverable.topic_id == topic_id)
+
+    if stage_id:
+        query = query.filter(StageDeliverable.stage_id == stage_id)
+
+    return query.order_by(StageDeliverable.created_at.desc()).all()
+
+
+@router.post("/{topic_id}/deliverables", response_model=StageDeliverableResponse)
+def create_deliverable(
+    topic_id: int,
+    deliverable_data: StageDeliverableCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Create a new deliverable for a stage"""
+    # CUSTOMER cannot create deliverables
+    if current_user.role == UserRole.CUSTOMER:
+        raise HTTPException(status_code=403, detail="CUSTOMER users cannot create deliverables")
+    
+    topic = db.query(Topic).options(
+        joinedload(Topic.bindings).joinedload(Binding.slot)
+    ).filter(Topic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    # Check permissions - DRI or admin can add deliverables
+    dri_binding = next((b for b in topic.bindings if b.is_dri), None)
+    is_dri = dri_binding and dri_binding.slot and dri_binding.slot.user_id == current_user.id
+    
+    if current_user.role != UserRole.ADMIN and not is_dri:
+        raise HTTPException(status_code=403, detail="Not authorized to add deliverables")
+
+    deliverable = StageDeliverable(
+        topic_id=topic_id,
+        stage_id=deliverable_data.stage_id,
+        name=deliverable_data.name,
+        type=deliverable_data.type,
+        url=deliverable_data.url,
+        description=deliverable_data.description,
+        file_name=deliverable_data.file_name,
+        file_size=deliverable_data.file_size,
+        mime_type=deliverable_data.mime_type,
+        created_by_id=current_user.id
+    )
+    db.add(deliverable)
+    db.commit()
+    db.refresh(deliverable)
+
+    return deliverable
+
+
+@router.delete("/{topic_id}/deliverables/{deliverable_id}")
+def delete_deliverable(
+    topic_id: int,
+    deliverable_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a deliverable"""
+    # CUSTOMER cannot delete deliverables
+    if current_user.role == UserRole.CUSTOMER:
+        raise HTTPException(status_code=403, detail="CUSTOMER users cannot delete deliverables")
+    
+    deliverable = db.query(StageDeliverable).filter(
+        StageDeliverable.id == deliverable_id,
+        StageDeliverable.topic_id == topic_id
+    ).first()
+    
+    if not deliverable:
+        raise HTTPException(status_code=404, detail="Deliverable not found")
+
+    topic = db.query(Topic).options(
+        joinedload(Topic.bindings).joinedload(Binding.slot)
+    ).filter(Topic.id == topic_id).first()
+    
+    # Check permissions - DRI, creator, or admin can delete
+    dri_binding = next((b for b in topic.bindings if b.is_dri), None)
+    is_dri = dri_binding and dri_binding.slot and dri_binding.slot.user_id == current_user.id
+    
+    if (current_user.role != UserRole.ADMIN and 
+        not is_dri and 
+        deliverable.created_by_id != current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this deliverable")
+
+    db.delete(deliverable)
+    db.commit()
+
+    return {"message": "Deliverable deleted"}

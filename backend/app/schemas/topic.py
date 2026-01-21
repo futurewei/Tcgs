@@ -2,13 +2,10 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 from ..models.topic import TopicType, TopicResult, TopicUrgency, StageStatus
+from ..models.deliverable import DeliverableType
 from .user import UserResponse
-
-# backend/app/schemas/topic.py
-from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
 from .capacity import SlotType
+
 
 class SlotRefResponse(BaseModel):
     id: int
@@ -88,14 +85,46 @@ class BindingResponse(BaseModel):
     id: int
     topic_id: int
     slot_id: int
-    slot: Optional[SlotRefResponse] = None  # ✅  新增：前端 chip 需要
+    slot: Optional[SlotRefResponse] = None
     percentage: int
     is_forced: bool
+    is_dri: bool = False  # NEW: indicates if this is the DRI binding
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+# Stage Deliverable schemas
+class StageDeliverableResponse(BaseModel):
+    id: int
+    topic_id: int
+    stage_id: int
+    name: str
+    type: DeliverableType
+    url: str
+    description: Optional[str] = None
+    file_name: Optional[str] = None
+    file_size: Optional[int] = None
+    mime_type: Optional[str] = None
+    created_by: Optional[UserResponse] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class StageDeliverableCreate(BaseModel):
+    stage_id: int
+    name: str
+    type: DeliverableType = DeliverableType.LINK
+    url: str
+    description: Optional[str] = None
+    file_name: Optional[str] = None
+    file_size: Optional[int] = None
+    mime_type: Optional[str] = None
 
 
 class TopicBase(BaseModel):
@@ -106,10 +135,12 @@ class TopicBase(BaseModel):
 
 
 class TopicCreate(TopicBase):
-    dri_id: int
     template_id: int
-    requester_name: Optional[str] = None  # Optional if requester_user_id is provided
+    requester_name: Optional[str] = None
     requester_user_id: Optional[int] = None
+    # DRI is now determined by first binding, not a separate field
+    initial_dri_slot_id: Optional[int] = None  # Optional: first slot to bind as DRI
+    initial_dri_percentage: int = 25  # Default percentage for DRI binding
 
 
 class TopicUpdate(BaseModel):
@@ -117,15 +148,12 @@ class TopicUpdate(BaseModel):
     description: Optional[str] = None
     urgency: Optional[TopicUrgency] = None
     result: Optional[TopicResult] = None
-    dri_id: Optional[int] = None
     current_stage_id: Optional[int] = None
 
 
 class TopicResponse(TopicBase):
     id: int
     result: TopicResult
-    dri_id: int
-    dri: Optional[UserResponse] = None
     template_id: int
     template: Optional[StageTemplateResponse] = None
     current_stage_id: Optional[int] = None
@@ -136,6 +164,7 @@ class TopicResponse(TopicBase):
     artifacts: List[ArtifactResponse] = []
     reviews: List[ReviewResponse] = []
     bindings: List[BindingResponse] = []
+    deliverables: List[StageDeliverableResponse] = []
     created_at: datetime
     updated_at: datetime
 
@@ -154,3 +183,14 @@ class ReviewCreate(BaseModel):
     topic_id: int
     stage_id: int
     content: str
+
+
+# Stage action schemas
+class StageAdvanceRequest(BaseModel):
+    """Request to advance or backward a stage"""
+    pass  # No body needed, stage_id comes from URL
+
+
+class ChangeDRIRequest(BaseModel):
+    """Request to change the DRI of a topic"""
+    new_dri_slot_id: int  # The slot that should become the new DRI

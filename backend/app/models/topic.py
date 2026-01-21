@@ -39,7 +39,10 @@ class Topic(Base):
     urgency = Column(Enum(TopicUrgency), default=TopicUrgency.P2)
     result = Column(Enum(TopicResult), default=TopicResult.OPEN)
 
-    dri_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # DRI is now determined by binding.is_dri, not this field
+    # Keep dri_id for backward compatibility but it's deprecated
+    dri_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
     template_id = Column(Integer, ForeignKey("stage_templates.id"), nullable=False)
     current_stage_id = Column(Integer, ForeignKey("stage_template_stages.id"), nullable=True)
 
@@ -57,7 +60,23 @@ class Topic(Base):
     stage_states = relationship("TopicStageState", back_populates="topic")
     artifacts = relationship("Artifact", back_populates="topic")
     reviews = relationship("ReviewComment", back_populates="topic")
-    bindings = relationship("Binding", back_populates="topic")
+    bindings = relationship("Binding", back_populates="topic", cascade="all, delete-orphan")
+    deliverables = relationship("StageDeliverable", back_populates="topic", cascade="all, delete-orphan")
+
+    @property
+    def dri_binding(self):
+        """Get the DRI binding (the binding with is_dri=True)"""
+        for b in self.bindings:
+            if b.is_dri:
+                return b
+        # Fallback: return first binding if no explicit DRI
+        return self.bindings[0] if self.bindings else None
+
+    @property
+    def dri_slot(self):
+        """Get the DRI's slot"""
+        dri_b = self.dri_binding
+        return dri_b.slot if dri_b else None
 
 
 class TopicStageState(Base):

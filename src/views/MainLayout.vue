@@ -9,13 +9,13 @@
         >
           <el-icon :size="20"><Menu /></el-icon>
         </button>
-        <h1 class="text-lg font-semibold text-zinc-900">TCGS</h1>
+        <h1 class="text-lg font-semibold text-zinc-900">TCGS 课题治理系统</h1>
       </div>
 
       <div class="flex-1 flex items-center justify-center max-w-md mx-auto">
         <el-input
           v-model="searchQuery"
-          placeholder="Search topics by title or ID..."
+          placeholder="搜索课题 (名称或编号)..."
           class="w-full"
           clearable
           @keyup.enter="handleSearch"
@@ -32,7 +32,7 @@
           type="primary"
           @click="showCreateTopic = true"
         >
-          New Topic
+          创建课题
         </el-button>
 
         <el-dropdown trigger="click">
@@ -46,11 +46,11 @@
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item disabled>
-                <span class="text-xs text-zinc-500">{{ authStore.user?.role }}</span>
+                <span class="text-xs text-zinc-500">{{ roleLabel }}</span>
               </el-dropdown-item>
               <el-dropdown-item divided @click="handleLogout">
                 <el-icon class="mr-2"><SwitchButton /></el-icon>
-                Logout
+                退出登录
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -82,7 +82,7 @@
         </router-link>
 
         <div v-if="authStore.isAdmin" class="pt-4 mt-4 border-t border-zinc-200">
-          <p v-if="!sideNavCollapsed" class="px-3 py-2 text-xs font-medium text-zinc-400 uppercase">Admin</p>
+          <p v-if="!sideNavCollapsed" class="px-3 py-2 text-xs font-medium text-zinc-400 uppercase">管理</p>
           <router-link
             v-for="item in adminNavItems"
             :key="item.path"
@@ -151,18 +151,30 @@ const userInitials = computed(() => {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 });
 
+const roleLabels: Record<string, string> = {
+  ADMIN: '管理员',
+  MEMBER: '算法成员',
+  REVIEWER: '评审员',
+  EXTERNAL: '协调人力',
+  CUSTOMER: '需求方',
+};
+
+const roleLabel = computed(() => {
+  return roleLabels[authStore.user?.role || ''] || authStore.user?.role;
+});
+
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: DataAnalysis },
-  { path: '/topics', label: 'Topics', icon: Document },
-  { path: '/capacity', label: 'Capacity', icon: User },
-  { path: '/wiki', label: 'Wiki', icon: Notebook },
-  { path: '/templates', label: 'Stage Templates', icon: Collection },
-  { path: '/insights', label: 'Insights / History', icon: Clock },
+  { path: '/dashboard', label: '工作台', icon: DataAnalysis },
+  { path: '/topics', label: '课题管理', icon: Document },
+  { path: '/capacity', label: '人力管理', icon: User },
+  { path: '/wiki', label: '知识库', icon: Notebook },
+  { path: '/templates', label: '流程模板', icon: Collection },
+  { path: '/insights', label: '数据洞察', icon: Clock },
 ];
 
 const adminNavItems = [
-  { path: '/users', label: 'Users', icon: User },
-  { path: '/audit-logs', label: 'Audit Log', icon: List },
+  { path: '/users', label: '用户管理', icon: User },
+  { path: '/audit-logs', label: '操作日志', icon: List },
 ];
 
 function isActive(path: string) {

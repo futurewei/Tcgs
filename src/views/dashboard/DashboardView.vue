@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-zinc-900">Dashboard</h1>
+      <h1 class="text-2xl font-bold text-zinc-900">工作台</h1>
     </div>
 
     <div v-if="dragHint" class="text-xs text-zinc-500">
@@ -15,16 +15,16 @@
         <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden">
           <div class="p-4 border-b border-zinc-100 flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <h2 class="font-semibold text-zinc-900">Uncertainty Topics</h2>
+              <h2 class="font-semibold text-zinc-900">不确定性课题</h2>
               <span class="px-2 py-0.5 bg-zinc-100 rounded-full text-xs font-medium text-zinc-600">
                 {{ filteredUncertaintyTopics.length }}
               </span>
             </div>
             <el-radio-group v-model="uncertaintyFilter" size="small">
-              <el-radio-button label="">All</el-radio-button>
+              <el-radio-button label="">全部</el-radio-button>
               <el-radio-button label="P0">P0</el-radio-button>
               <el-radio-button label="P1">P1</el-radio-button>
-              <el-radio-button label="me">DRI=me</el-radio-button>
+              <el-radio-button label="me">DRI=我</el-radio-button>
             </el-radio-group>
           </div>
 
@@ -38,7 +38,7 @@
               :class="hoverTopicId === topic.id ? 'ring-2 ring-emerald-200 border-emerald-400' : ''"
             />
             <div v-if="filteredUncertaintyTopics.length === 0" class="text-center py-8 text-zinc-400">
-              No uncertainty topics found
+              暂无不确定性课题
             </div>
           </div>
         </div>
@@ -47,16 +47,16 @@
         <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden">
           <div class="p-4 border-b border-zinc-100 flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <h2 class="font-semibold text-zinc-900">Evolution Projects</h2>
+              <h2 class="font-semibold text-zinc-900">演进课题</h2>
               <span class="px-2 py-0.5 bg-zinc-100 rounded-full text-xs font-medium text-zinc-600">
                 {{ filteredEvolutionTopics.length }}
               </span>
             </div>
             <el-radio-group v-model="evolutionFilter" size="small">
-              <el-radio-button label="">All</el-radio-button>
+              <el-radio-button label="">全部</el-radio-button>
               <el-radio-button label="P0">P0</el-radio-button>
               <el-radio-button label="P1">P1</el-radio-button>
-              <el-radio-button label="me">DRI=me</el-radio-button>
+              <el-radio-button label="me">DRI=我</el-radio-button>
             </el-radio-group>
           </div>
 
@@ -70,16 +70,15 @@
               :class="hoverTopicId === topic.id ? 'ring-2 ring-emerald-200 border-emerald-400' : ''"
             />
             <div v-if="filteredEvolutionTopics.length === 0" class="text-center py-8 text-zinc-400">
-              No evolution projects found
+              暂无演进课题
             </div>
           </div>
         </div>
       </div>
 
       <!-- Right -->
-      <!-- ✅ 给右侧栏一个固定 id，用于 drop fallback -->
       <div class="col-span-4 space-y-4" id="dashboard-right-column">
-        <!-- Algo Slots (also drop zone for release) -->
+        <!-- Algo Slots -->
         <div
           class="bg-white rounded-xl border overflow-hidden transition-all"
           :class="poolHover === 'ALGO' ? 'border-emerald-400 ring-2 ring-emerald-200' : 'border-zinc-200'"
@@ -87,7 +86,7 @@
         >
           <div class="p-4 border-b border-zinc-100">
             <div class="flex items-center gap-2">
-              <h2 class="font-semibold text-zinc-900">Algo Slots</h2>
+              <h2 class="font-semibold text-zinc-900">自有人力</h2>
               <span class="px-2 py-0.5 bg-zinc-100 rounded-full text-xs font-medium text-zinc-600">
                 {{ algoSlots.length }}
               </span>
@@ -105,13 +104,13 @@
                 <SlotChip :slot="slot" show-percentage :draggable="true" />
               </div>
               <div v-if="algoSlots.length === 0" class="text-sm text-zinc-400">
-                No algo slots configured
+                暂无自有人力
               </div>
             </div>
           </div>
         </div>
 
-        <!-- External Slots (also drop zone for release) -->
+        <!-- External Slots -->
         <div
           class="bg-white rounded-xl border overflow-hidden transition-all"
           :class="poolHover === 'EXTERNAL' ? 'border-emerald-400 ring-2 ring-emerald-200' : 'border-zinc-200'"
@@ -119,12 +118,11 @@
         >
           <div class="p-4 border-b border-zinc-100">
             <div class="flex items-center gap-2">
-              <h2 class="font-semibold text-zinc-900">External Slots</h2>
+              <h2 class="font-semibold text-zinc-900">协调人力</h2>
               <span class="px-2 py-0.5 bg-zinc-100 rounded-full text-xs font-medium text-zinc-600">
                 {{ externalSlots.length }}
               </span>
             </div>
-            <!-- ✅ External is allowed to be DRI -->
           </div>
 
           <div class="p-4">
@@ -138,7 +136,7 @@
                 <SlotChip :slot="slot" show-percentage :draggable="true" />
               </div>
               <div v-if="externalSlots.length === 0" class="text-sm text-zinc-400">
-                No external slots configured
+                暂无协调人力
               </div>
             </div>
           </div>
@@ -146,18 +144,18 @@
 
         <!-- Quick Stats -->
         <div class="bg-white rounded-xl border border-zinc-200 p-4">
-          <h3 class="font-semibold text-zinc-900 mb-4">Quick Stats</h3>
+          <h3 class="font-semibold text-zinc-900 mb-4">快速统计</h3>
           <div class="space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-sm text-zinc-600">Open Topics</span>
+              <span class="text-sm text-zinc-600">进行中课题</span>
               <span class="font-semibold text-zinc-900">{{ openTopicsCount }}</span>
             </div>
             <div class="flex items-center justify-between">
-              <span class="text-sm text-zinc-600">Completed</span>
+              <span class="text-sm text-zinc-600">已完成</span>
               <span class="font-semibold text-emerald-600">{{ completedTopicsCount }}</span>
             </div>
             <div class="flex items-center justify-between">
-              <span class="text-sm text-zinc-600">Unsolvable</span>
+              <span class="text-sm text-zinc-600">无法解决</span>
               <span class="font-semibold text-rose-600">{{ unsolvableTopicsCount }}</span>
             </div>
           </div>
@@ -165,7 +163,7 @@
       </div>
     </div>
 
-    <!-- Add binding dialog (used for slot->topic assign) -->
+    <!-- Add binding dialog -->
     <AddBindingDialog
       v-model="addBindingOpen"
       :topic-id="bindingTopicId"
@@ -188,7 +186,7 @@ import TopicRow from '@/components/topic/TopicRow.vue';
 import SlotChip from '@/components/common/SlotChip.vue';
 import AddBindingDialog from '@/components/topic/AddBindingDialog.vue';
 
-import type { Topic } from '@/types';
+import type { Topic, Binding } from '@/types';
 
 type DragMode = 'none' | 'assign' | 'release';
 type PoolType = 'ALGO' | 'EXTERNAL';
@@ -201,7 +199,7 @@ const authStore = useAuthStore();
 const uncertaintyFilter = ref('');
 const evolutionFilter = ref('');
 
-/** ---------- topics data ---------- */
+/** topics data */
 const uncertaintyTopics = computed(() =>
   topicsStore.topics.filter((t) => t.type === 'UNCERTAINTY' && t.result === 'OPEN')
 );
@@ -209,11 +207,20 @@ const evolutionTopics = computed(() =>
   topicsStore.topics.filter((t) => t.type === 'EVOLUTION' && t.result === 'OPEN')
 );
 
+// Helper to check if user is DRI of a topic
+function isDriOfTopic(topic: Topic): boolean {
+  const bindings = (topic as any).bindings || [];
+  const driBinding = bindings.find((b: any) => b.isDri || b.is_dri);
+  if (!driBinding) return false;
+  const slotUserId = driBinding.slot?.userId ?? driBinding.slot?.user_id;
+  return slotUserId === authStore.user?.id;
+}
+
 const filteredUncertaintyTopics = computed(() => {
   let topics = uncertaintyTopics.value;
   if (uncertaintyFilter.value === 'P0') topics = topics.filter((t) => t.urgency === 'P0');
   else if (uncertaintyFilter.value === 'P1') topics = topics.filter((t) => t.urgency === 'P1');
-  else if (uncertaintyFilter.value === 'me') topics = topics.filter((t) => t.driId === authStore.user?.id);
+  else if (uncertaintyFilter.value === 'me') topics = topics.filter((t) => isDriOfTopic(t));
   return topics;
 });
 
@@ -221,15 +228,15 @@ const filteredEvolutionTopics = computed(() => {
   let topics = evolutionTopics.value;
   if (evolutionFilter.value === 'P0') topics = topics.filter((t) => t.urgency === 'P0');
   else if (evolutionFilter.value === 'P1') topics = topics.filter((t) => t.urgency === 'P1');
-  else if (evolutionFilter.value === 'me') topics = topics.filter((t) => t.driId === authStore.user?.id);
+  else if (evolutionFilter.value === 'me') topics = topics.filter((t) => isDriOfTopic(t));
   return topics;
 });
 
-/** ---------- slots data ---------- */
+/** slots data */
 const algoSlots = computed(() => capacityStore.algoSlots);
 const externalSlots = computed(() => capacityStore.externalSlots);
 
-/** ---------- stats ---------- */
+/** stats */
 const openTopicsCount = computed(() => topicsStore.topics.filter((t) => t.result === 'OPEN').length);
 const completedTopicsCount = computed(() => topicsStore.topics.filter((t) => t.result === 'SUCCESS').length);
 const unsolvableTopicsCount = computed(() => topicsStore.topics.filter((t) => t.result === 'UNSOLVABLE').length);
@@ -238,7 +245,7 @@ function openTopic(topic: Topic) {
   router.push(`/topics/${topic.id}`);
 }
 
-/** ---------- AddBindingDialog state (assign) ---------- */
+/** AddBindingDialog state */
 const addBindingOpen = ref(false);
 const bindingTopicId = ref(0);
 const bindingSlotId = ref<number | undefined>(undefined);
@@ -247,7 +254,7 @@ async function afterBindingCreated() {
   await Promise.all([topicsStore.fetchTopics(), capacityStore.fetchSlots()]);
 }
 
-/** ---------- pointer-drag core ---------- */
+/** pointer-drag core */
 const dragMode = ref<DragMode>('none');
 const draggingSlotId = ref<number | null>(null);
 const draggingBindingId = ref<number | null>(null);
@@ -256,8 +263,8 @@ const hoverTopicId = ref<number | null>(null);
 const poolHover = ref<PoolType | null>(null);
 
 const dragHint = computed(() => {
-  if (dragMode.value === 'assign') return 'Dragging slot → drop on a topic to assign.';
-  if (dragMode.value === 'release') return 'Dragging binding → drop on right pool to release.';
+  if (dragMode.value === 'assign') return '拖动人员到课题上进行分配';
+  if (dragMode.value === 'release') return '拖动分配块到右侧释放人力';
   return '';
 });
 
@@ -299,11 +306,6 @@ function findTopicIdUnderPointer(x: number, y: number): number | null {
   return Number.isFinite(id) ? id : null;
 }
 
-/**
- * ✅ 更稳的 pool 命中判定：
- * 1) 先走 elementFromPoint + closest('[data-pool-drop]')
- * 2) 失败就 fallback：如果鼠标在右侧栏 #dashboard-right-column 内，按两张卡片位置推断
- */
 function findPoolUnderPointer(x: number, y: number): PoolType | null {
   const el = document.elementFromPoint(x, y) as HTMLElement | null;
   if (el) {
@@ -344,7 +346,7 @@ function findPoolUnderPointer(x: number, y: number): PoolType | null {
   return null;
 }
 
-/** ---------- Assign: Slot -> Topic ---------- */
+/** Assign: Slot -> Topic */
 function startAssignDrag(e: PointerEvent, slotId: number) {
   if (e.button !== 0) return;
 
@@ -389,7 +391,7 @@ function onAssignUp() {
   addBindingOpen.value = true;
 }
 
-/** ---------- Release: Binding -> Pool ---------- */
+/** Release: Binding -> Pool */
 function startReleaseDrag(payload: { e: PointerEvent; binding: any }) {
   const e = payload.e;
   if (e.button !== 0) return;
@@ -427,9 +429,6 @@ function findBindingInLocalState(bindingId: number): any | null {
   return null;
 }
 
-/**
- * ✅ 释放时按 slotId 成组删除（避免重复 binding 导致“拖回去没用/残留一个”）
- */
 function findAllBindingIdsInSameTopicAndSlot(bindingId: number): number[] {
   for (const t of topicsStore.topics) {
     const target = t.bindings?.find((x: any) => x.id === bindingId);
@@ -457,7 +456,6 @@ async function onReleaseUp() {
 
   if (!bindingId || !pool) return;
 
-  // ✅ 从当前 UI 中找到这个 binding 的完整信息，用于回滚
   const binding = findBindingInLocalState(bindingId);
   if (!binding) {
     await capacityStore.deleteBinding(bindingId);
@@ -465,11 +463,9 @@ async function onReleaseUp() {
     return;
   }
 
-  // ✅ 成组删除：同 topic + 同 slot 的所有 binding
   const ids = findAllBindingIdsInSameTopicAndSlot(bindingId);
   if (!ids.length) return;
 
-  // ✅ 快照：用于失败回滚
   const snapshot: any[] = [];
   {
     const t = topicsStore.topics.find((x: any) => x.id === binding.topicId);
@@ -481,7 +477,6 @@ async function onReleaseUp() {
     }
   }
 
-  // ✅ 乐观更新：先本地删（Topic 区域立刻消失）
   for (const id of ids) {
     topicsStore.removeBindingLocal(id);
     capacityStore.removeBindingLocal(id);
@@ -489,14 +484,13 @@ async function onReleaseUp() {
 
   try {
     await Promise.all(ids.map((id) => capacityStore.deleteBinding(id)));
-    ElMessage.success('Released');
+    ElMessage.success('已释放');
   } catch (e) {
-    // ❌ 失败：回滚整组
     for (const b of snapshot) {
       topicsStore.addBindingLocal(b.topicId, b);
       capacityStore.addBindingLocal(b.slotId, b);
     }
-    ElMessage.error('Failed to release, rolled back.');
+    ElMessage.error('释放失败，已回滚');
   }
 }
 

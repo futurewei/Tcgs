@@ -13,12 +13,13 @@ class BindingBase(BaseModel):
 
 
 class BindingCreate(BindingBase):
-    pass
+    is_dri: Optional[bool] = None  # If True, this binding becomes the DRI
 
 
 class BindingUpdate(BaseModel):
     percentage: Optional[int] = None
     is_forced: Optional[bool] = None
+    is_dri: Optional[bool] = None  # Can change DRI status
 
 
 class BindingInSlotResponse(BaseModel):
@@ -26,6 +27,7 @@ class BindingInSlotResponse(BaseModel):
     topic_id: int
     percentage: int
     is_forced: bool
+    is_dri: bool = False
 
     class Config:
         from_attributes = True
@@ -60,8 +62,13 @@ class SlotResponse(SlotBase):
         from_attributes = True
 
 
-class BindingWithSlotResponse(BindingBase):
+class BindingWithSlotResponse(BaseModel):
     id: int
+    topic_id: int
+    slot_id: int
+    percentage: int
+    is_forced: bool
+    is_dri: bool = False
     slot: Optional[SlotResponse] = None
     created_at: datetime
     updated_at: datetime

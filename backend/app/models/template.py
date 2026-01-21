@@ -35,3 +35,4 @@ class StageTemplateStage(Base):
     topic_stage_states = relationship("TopicStageState", back_populates="stage")
     artifacts = relationship("Artifact", back_populates="stage")
     reviews = relationship("ReviewComment", back_populates="stage")
+    deliverables = relationship("StageDeliverable", back_populates="stage")

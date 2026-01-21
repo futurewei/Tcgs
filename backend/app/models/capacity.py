@@ -34,6 +34,7 @@ class Binding(Base):
     slot_id = Column(Integer, ForeignKey("capacity_slots.id"), nullable=False)
     percentage = Column(Integer, nullable=False, default=25)
     is_forced = Column(Boolean, default=False)
+    is_dri = Column(Boolean, default=False)  # NEW: Mark if this binding is the DRI (first responsible person)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

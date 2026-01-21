@@ -4,28 +4,43 @@
       <el-tooltip :content="getStageTooltip(stage)" placement="top">
         <div
           :class="[
-            'flex items-center justify-center rounded transition-all cursor-pointer',
-            compact ? 'h-6 px-2 text-xs' : 'h-8 px-3 text-sm',
+            'flex items-center justify-center rounded-lg transition-all cursor-pointer',
+            compact ? 'h-7 px-2.5 text-xs' : 'h-9 px-4 text-sm',
             getStageClass(stage)
           ]"
           @click="$emit('stage-click', stage)"
         >
-          <span v-if="!compact" class="font-medium truncate max-w-[80px]">{{ stage.name }}</span>
+          <!-- Status indicator -->
+          <span
+            v-if="!compact && !isStageCompleted(stage)"
+            :class="[
+              'w-2 h-2 rounded-full mr-2 flex-shrink-0',
+              isStageActive(stage) ? 'bg-white animate-pulse' : 'bg-current opacity-40'
+            ]"
+          />
+          
+          <span v-if="!compact" class="font-medium truncate max-w-[100px]">{{ stage.name }}</span>
           <span v-else class="font-medium">{{ getStageAbbr(stage.name) }}</span>
 
-          <el-icon v-if="isStageCompleted(stage)" class="ml-1" :size="compact ? 12 : 14">
+          <el-icon v-if="isStageCompleted(stage)" class="ml-1.5 flex-shrink-0" :size="compact ? 12 : 14">
             <Check />
+          </el-icon>
+          
+          <!-- Terminal stage indicator -->
+          <el-icon v-if="!compact && stage.isTerminal && !isStageCompleted(stage)" class="ml-1 flex-shrink-0 opacity-60" :size="12">
+            <Flag />
           </el-icon>
         </div>
       </el-tooltip>
 
+      <!-- Connector line -->
       <div
         v-if="index < stages.length - 1"
         :class="[
-          'flex-shrink-0',
-          compact ? 'w-2' : 'w-4',
+          'flex-shrink-0 transition-all duration-300',
+          compact ? 'w-3' : 'w-6',
           'h-0.5',
-          index < currentStageIndex ? 'bg-zinc-900' : 'bg-zinc-200'
+          getConnectorClass(index)
         ]"
       />
     </template>
@@ -34,7 +49,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Check } from '@element-plus/icons-vue';
+import { Check, Flag } from '@element-plus/icons-vue';
 import type { StageTemplateStage, TopicStageState } from '@/types';
 
 const props = defineProps<{
@@ -48,7 +63,7 @@ defineEmits<{
   (e: 'stage-click', stage: StageTemplateStage): void;
 }>();
 
-/** 兼容后端 snake_case / 前端 camelCase */
+/** Compatible with backend snake_case / frontend camelCase */
 function getStageIdFromState(ss: any): number | undefined {
   return ss?.stageId ?? ss?.stage_id;
 }
@@ -69,13 +84,13 @@ function isStageCompleted(stage: StageTemplateStage): boolean {
   const ss: any = getStageState(stage);
   const status = (getStatusFromState(ss) || '').toLowerCase();
 
-  // 兼容多种后端命名：done / completed / finished / closed
+  // Compatible with various backend naming: done / completed / finished / closed
   if (['done', 'completed', 'finished', 'closed'].includes(status)) return true;
 
-  // 有 completed_at 也当作完成（你后端返回里有 completed_at）
+  // Has completed_at also counts as completed
   if (ss && (ss.completedAt || (ss as any).completed_at)) return true;
 
-  // 如果后端没给 stageStates，就用 currentStageId + order 推断
+  // If backend doesn't provide stageStates, infer from currentStageId + order
   if (!props.stageStates?.length && props.currentStageId) {
     const idx = props.stages.findIndex(s => s.id === stage.id);
     return idx !== -1 && idx < currentStageIndex.value;
@@ -92,14 +107,36 @@ function isStageActive(stage: StageTemplateStage): boolean {
   return stage.id === props.currentStageId;
 }
 
+function isStagePending(stage: StageTemplateStage): boolean {
+  return !isStageCompleted(stage) && !isStageActive(stage);
+}
+
 function getStageClass(stage: StageTemplateStage): string {
   if (isStageCompleted(stage)) {
-    return 'bg-emerald-600 text-white';
+    return 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700';
   }
   if (isStageActive(stage)) {
-    return 'bg-blue-600 text-white ring-2 ring-blue-300 ring-offset-1';
+    return 'bg-blue-600 text-white ring-2 ring-blue-300 ring-offset-1 shadow-md hover:bg-blue-700';
   }
-  return 'bg-zinc-100 text-zinc-500';
+  return 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200';
+}
+
+function getConnectorClass(index: number): string {
+  // If the stage after this connector is completed or active, the connector is "done"
+  const nextStage = props.stages[index + 1];
+  if (!nextStage) return 'bg-zinc-200';
+  
+  if (isStageCompleted(nextStage) || isStageActive(nextStage)) {
+    return 'bg-emerald-600';
+  }
+  
+  // If current stage is completed, connector shows progress
+  const currentStage = props.stages[index];
+  if (isStageCompleted(currentStage)) {
+    return 'bg-gradient-to-r from-emerald-600 to-zinc-300';
+  }
+  
+  return 'bg-zinc-200';
 }
 
 function getStageTooltip(stage: StageTemplateStage): string {
@@ -107,11 +144,28 @@ function getStageTooltip(stage: StageTemplateStage): string {
   const statusRaw = (getStatusFromState(ss) || '').toLowerCase();
 
   let statusLabel = 'Pending';
-  if (isStageCompleted(stage)) statusLabel = 'Completed';
-  else if (isStageActive(stage)) statusLabel = 'Active';
+  if (isStageCompleted(stage)) statusLabel = '✅ Completed';
+  else if (isStageActive(stage)) statusLabel = '🔄 In Progress';
   else if (statusRaw) statusLabel = statusRaw;
 
-  return `${stage.name}: ${statusLabel}${stage.isTerminal ? ' (Terminal)' : ''}`;
+  const lines = [
+    `${stage.name}`,
+    `Status: ${statusLabel}`,
+  ];
+  
+  if (stage.description) {
+    lines.push(`${stage.description}`);
+  }
+  
+  if (stage.isTerminal) {
+    lines.push('🏁 Terminal Stage');
+  }
+  
+  if (stage.requireArtifact) {
+    lines.push('📎 Requires Deliverable');
+  }
+
+  return lines.join('\n');
 }
 
 function getStageAbbr(name: string): string {

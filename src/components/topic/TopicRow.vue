@@ -14,19 +14,9 @@
           </el-tag>
         </div>
         <p class="text-xs text-zinc-500 mt-0.5 truncate">
-          ID: {{ props.topic.id }}
-          <span v-if="requesterName" class="ml-2">• Requester: {{ requesterName }}</span>
+          编号: {{ props.topic.id }}
+          <span v-if="requesterName" class="ml-2">• 需求方: {{ requesterName }}</span>
         </p>
-      </div>
-
-      <!-- DRI -->
-      <div class="flex items-center gap-2 flex-shrink-0">
-        <div
-          class="w-6 h-6 bg-zinc-200 rounded-full flex items-center justify-center text-xs font-medium text-zinc-600"
-        >
-          {{ driInitials }}
-        </div>
-        <span class="text-sm text-zinc-600 max-w-[110px] truncate">{{ driName }}</span>
       </div>
 
       <!-- Stage Timeline (stop click open) -->
@@ -41,21 +31,35 @@
 
       <!-- Result -->
       <el-tag :type="resultType" size="small" class="flex-shrink-0">
-        {{ props.topic.result }}
+        {{ resultLabel }}
       </el-tag>
 
-      <el-button size="small" @click.stop="emit('open', props.topic)">Open</el-button>
+      <el-button size="small" @click.stop="emit('open', props.topic)">打开</el-button>
     </div>
 
-    <!-- ✅ Bindings row (dedup by slotId, and use capacityStore slot so tooltip used/remaining is correct) -->
-    <div v-if="uniqueBindings.length" class="mt-2 flex flex-wrap gap-2" @click.stop>
+    <!-- Bindings row: DRI first with special mark, then others -->
+    <div v-if="sortedBindings.length" class="mt-2 flex flex-wrap gap-2" @click.stop>
       <div
-        v-for="b in uniqueBindings"
+        v-for="b in sortedBindings"
         :key="b.id"
         class="select-none"
         @pointerdown.stop.prevent="emit('binding-pointerdown', { e: $event, binding: b })"
       >
+        <!-- DRI binding with special styling -->
+        <div v-if="b.isDri" class="relative">
+          <SlotChip
+            :slot="resolveSlot(b)"
+            :binding-percentage="b.percentage"
+            show-percentage
+            class="ring-2 ring-blue-400 ring-offset-1"
+          />
+          <span class="absolute -top-1.5 -right-1.5 px-1 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded">
+            DRI
+          </span>
+        </div>
+        <!-- Normal binding -->
         <SlotChip
+          v-else
           :slot="resolveSlot(b)"
           :binding-percentage="b.percentage"
           show-percentage
@@ -67,7 +71,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { Topic } from '@/types';
+import type { Topic, Binding } from '@/types';
 import StageTimeline from './StageTimeline.vue';
 import SlotChip from '@/components/common/SlotChip.vue';
 import { useCapacityStore } from '@/stores/capacity';
@@ -98,23 +102,21 @@ const resultType = computed(() => {
   }
 });
 
+const resultLabel = computed(() => {
+  switch (props.topic.result) {
+    case 'SUCCESS': return '已完成';
+    case 'UNSOLVABLE': return '无法解决';
+    case 'OPEN': return '进行中';
+    default: return props.topic.result;
+  }
+});
+
 const requesterName = computed(() => {
   const t: any = props.topic;
   return t?.requesterName ?? t?.requester_name ?? '';
 });
 
-/** ✅ DRI 兼容 */
-const driName = computed(() => {
-  const t: any = props.topic;
-  return t?.dri?.name ?? t?.driName ?? t?.dri_name ?? '';
-});
-
-const driInitials = computed(() => {
-  const name = driName.value || '';
-  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-});
-
-/** ✅ Stage 字段兼容：camel + snake */
+/** Stage 字段兼容：camel + snake */
 const stages = computed(() => {
   const t: any = props.topic;
   return t?.template?.stages ?? [];
@@ -131,10 +133,9 @@ const currentStageId = computed(() => {
 });
 
 /**
- * ✅ bindings 兼容：bindings / capacity_bindings
- * ✅ 去重：同 slotId 只显示一次（兜底防重复）
+ * Bindings: normalize and sort (DRI first, then others by percentage desc)
  */
-const uniqueBindings = computed(() => {
+const sortedBindings = computed(() => {
   const t: any = props.topic;
   const arr = (t?.bindings ?? t?.capacity_bindings ?? []) as any[];
 
@@ -147,18 +148,24 @@ const uniqueBindings = computed(() => {
     if (seen.has(sid)) continue;
     seen.add(sid);
 
-    // 保证 slotId 字段存在，Dashboard release 逻辑需要
     out.push({
       ...b,
       slotId: b.slotId ?? b.slot_id ?? b.slot?.id,
       topicId: b.topicId ?? b.topic_id ?? t?.id,
+      isDri: b.isDri ?? b.is_dri ?? false,
     });
   }
-  return out;
+
+  // Sort: DRI first, then by percentage descending
+  return out.sort((a, b) => {
+    if (a.isDri && !b.isDri) return -1;
+    if (!a.isDri && b.isDri) return 1;
+    return (b.percentage || 0) - (a.percentage || 0);
+  });
 });
 
 /**
- * ✅ SlotChip 用 capacityStore 的 slot（带 bindings，used/remaining 才准）
+ * SlotChip 用 capacityStore 的 slot（带 bindings，used/remaining 才准）
  * 找不到才退回 b.slot（不至于空）
  */
 function resolveSlot(b: any) {

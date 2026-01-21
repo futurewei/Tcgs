@@ -31,3 +31,4 @@ class User(Base):
     created_reviews = relationship("ReviewComment", back_populates="created_by")
     wiki_revisions = relationship("WikiRevision", back_populates="created_by")
     audit_logs = relationship("AuditLog", back_populates="user")
+    created_deliverables = relationship("StageDeliverable", back_populates="created_by")

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { Topic, TopicCreateRequest, TopicUpdateRequest } from '@/types';
+import type { Topic, TopicCreateRequest, TopicUpdateRequest, ChangeDRIRequest } from '@/types';
 import { topicsApi, type TopicFilters } from '@/api/topics';
 import { mockTopics } from '@/api/mock';
 
@@ -138,23 +138,59 @@ export const useTopicsStore = defineStore('topics', () => {
     }
   }
 
-function removeBindingLocal(bindingId: number) {
-  for (const t of topics.value) {
-    if (!t.bindings?.length) continue;
-    const idx = t.bindings.findIndex((b) => b.id === bindingId);
-    if (idx >= 0) {
-      t.bindings.splice(idx, 1);
-      return; // 找到就退出
+  async function backwardStage(topicId: number, stageId: number) {
+    loading.value = true;
+    try {
+      const updated = await topicsApi.backwardStage(topicId, stageId);
+      if (currentTopic.value?.id === topicId) {
+        currentTopic.value = updated;
+      }
+      return updated;
+    } catch (error) {
+      console.error('Failed to go back to previous stage:', error);
+      throw error;
+    } finally {
+      loading.value = false;
     }
   }
-}
 
-function addBindingLocal(topicId: number, binding: any) {
-  const t = topics.value.find((x) => x.id === topicId);
-  if (!t) return;
-  if (!t.bindings) t.bindings = [];
-  t.bindings.push(binding);
-}
+  async function changeDri(topicId: number, data: ChangeDRIRequest) {
+    loading.value = true;
+    try {
+      const updated = await topicsApi.changeDri(topicId, data);
+      if (currentTopic.value?.id === topicId) {
+        currentTopic.value = updated;
+      }
+      const index = topics.value.findIndex(t => t.id === topicId);
+      if (index !== -1) {
+        topics.value[index] = updated;
+      }
+      return updated;
+    } catch (error) {
+      console.error('Failed to change DRI:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  function removeBindingLocal(bindingId: number) {
+    for (const t of topics.value) {
+      if (!t.bindings?.length) continue;
+      const idx = t.bindings.findIndex((b) => b.id === bindingId);
+      if (idx >= 0) {
+        t.bindings.splice(idx, 1);
+        return;
+      }
+    }
+  }
+
+  function addBindingLocal(topicId: number, binding: any) {
+    const t = topics.value.find((x) => x.id === topicId);
+    if (!t) return;
+    if (!t.bindings) t.bindings = [];
+    t.bindings.push(binding);
+  }
 
 
   return {
@@ -171,6 +207,8 @@ function addBindingLocal(topicId: number, binding: any) {
     updateTopic,
     deleteTopic,
     advanceStage,
+    backwardStage,
+    changeDri,
     removeBindingLocal,   
     addBindingLocal,
   };

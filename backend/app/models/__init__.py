@@ -7,6 +7,7 @@ from .template import StageTemplate, StageTemplateStage
 from .wiki import WikiDirection, WikiPage, WikiRevision
 from .attachment import Attachment
 from .audit import AuditLog
+from .deliverable import StageDeliverable, DeliverableType
 
 __all__ = [
     "User",
@@ -23,4 +24,6 @@ __all__ = [
     "WikiRevision",
     "Attachment",
     "AuditLog",
+    "StageDeliverable",
+    "DeliverableType",
 ]

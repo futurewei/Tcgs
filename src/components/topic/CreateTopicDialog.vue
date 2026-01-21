@@ -2,7 +2,7 @@
   <el-dialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    title="Create New Topic"
+    title="创建课题"
     width="600px"
     :close-on-click-modal="false"
   >
@@ -12,57 +12,72 @@
       :rules="rules"
       label-position="top"
     >
-      <el-form-item label="Title" prop="title">
-        <el-input v-model="form.title" placeholder="Enter topic title" />
+      <el-form-item label="课题名称" prop="title">
+        <el-input v-model="form.title" placeholder="输入课题名称" />
       </el-form-item>
 
-      <el-form-item label="Description" prop="description">
+      <el-form-item label="课题描述" prop="description">
         <el-input
           v-model="form.description"
           type="textarea"
           :rows="3"
-          placeholder="Describe the topic"
+          placeholder="描述课题内容"
         />
       </el-form-item>
 
       <div class="grid grid-cols-2 gap-4">
-        <el-form-item label="Type" prop="type">
+        <el-form-item label="类型" prop="type">
           <el-select v-model="form.type" class="w-full">
-            <el-option value="UNCERTAINTY" label="Uncertainty" />
-            <el-option value="EVOLUTION" label="Evolution" />
+            <el-option value="UNCERTAINTY" label="不确定性" />
+            <el-option value="EVOLUTION" label="演进" />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="Urgency" prop="urgency">
+        <el-form-item label="优先级" prop="urgency">
           <el-select v-model="form.urgency" class="w-full">
-            <el-option value="P0" label="P0 - Critical" />
-            <el-option value="P1" label="P1 - High" />
-            <el-option value="P2" label="P2 - Medium" />
-            <el-option value="P3" label="P3 - Low" />
+            <el-option value="P0" label="P0 - 紧急" />
+            <el-option value="P1" label="P1 - 高" />
+            <el-option value="P2" label="P2 - 中" />
+            <el-option value="P3" label="P3 - 低" />
           </el-select>
         </el-form-item>
       </div>
 
       <div class="grid grid-cols-2 gap-4">
-        <el-form-item label="DRI (Directly Responsible Individual)" prop="driId">
-          <el-select v-model="form.driId" class="w-full" filterable>
-            <el-option
-              v-for="user in eligibleDRIs"
-              :key="user.id"
-              :value="user.id"
-              :label="user.name"
-            >
-              <div class="flex items-center gap-2">
-                <span>{{ user.name }}</span>
-                <el-tag size="small" type="info">{{ user.role }}</el-tag>
-              </div>
-            </el-option>
+        <el-form-item label="DRI (负责人)" prop="initialDriSlotId">
+          <el-select v-model="form.initialDriSlotId" class="w-full" filterable placeholder="选择负责人">
+            <el-option-group label="自有人力">
+              <el-option
+                v-for="slot in algoSlots"
+                :key="slot.id"
+                :value="slot.id"
+                :label="slot.name"
+              >
+                <div class="flex items-center justify-between w-full">
+                  <span>{{ slot.name }}</span>
+                  <span class="text-xs text-zinc-400">{{ getSlotUsage(slot) }}% 已用</span>
+                </div>
+              </el-option>
+            </el-option-group>
+            <el-option-group label="协调人力">
+              <el-option
+                v-for="slot in externalSlots"
+                :key="slot.id"
+                :value="slot.id"
+                :label="slot.name"
+              >
+                <div class="flex items-center justify-between w-full">
+                  <span>{{ slot.name }}</span>
+                  <span class="text-xs text-zinc-400">{{ getSlotUsage(slot) }}% 已用</span>
+                </div>
+              </el-option>
+            </el-option-group>
           </el-select>
-          <p class="text-xs text-zinc-400 mt-1">EXTERNAL and CUSTOMER users cannot be DRI</p>
+          <p class="text-xs text-zinc-400 mt-1">DRI 会自动成为首个人力绑定</p>
         </el-form-item>
 
-        <el-form-item label="Stage Template" prop="templateId">
-          <el-select v-model="form.templateId" class="w-full">
+        <el-form-item label="流程模板" prop="templateId">
+          <el-select v-model="form.templateId" class="w-full" placeholder="选择流程模板">
             <el-option
               v-for="template in templates"
               :key="template.id"
@@ -71,22 +86,27 @@
             >
               <div class="flex items-center justify-between w-full">
                 <span>{{ template.name }}</span>
-                <span class="text-xs text-zinc-400">{{ template.stages?.length || 0 }} stages</span>
+                <span class="text-xs text-zinc-400">{{ template.stages?.length || 0 }} 个阶段</span>
               </div>
             </el-option>
           </el-select>
         </el-form-item>
       </div>
 
+      <!-- DRI Percentage -->
+      <el-form-item v-if="form.initialDriSlotId" label="DRI 分配比例 (%)">
+        <el-slider v-model="form.initialDriPercentage" :min="5" :max="100" :step="5" show-input />
+      </el-form-item>
+
       <!-- Requester Section -->
       <div class="grid grid-cols-2 gap-4">
-        <el-form-item label="Requester (Customer)" prop="requesterUserId">
+        <el-form-item label="需求方 (已注册用户)" prop="requesterUserId">
           <el-select 
             v-model="form.requesterUserId" 
             class="w-full" 
             filterable
             clearable
-            placeholder="Select customer user (optional)"
+            placeholder="选择需求方用户 (可选)"
           >
             <el-option
               v-for="user in eligibleRequesters"
@@ -96,27 +116,27 @@
             >
               <div class="flex items-center gap-2">
                 <span>{{ user.name }}</span>
-                <el-tag size="small" type="info">CUSTOMER</el-tag>
+                <el-tag size="small" type="info">需求方</el-tag>
               </div>
             </el-option>
           </el-select>
         </el-form-item>
 
-        <el-form-item label="Requester Name (External)" prop="requesterName">
+        <el-form-item label="需求方名称 (外部)" prop="requesterName">
           <el-input 
             v-model="form.requesterName" 
-            placeholder="Enter requester name (required if no customer selected)"
+            placeholder="输入需求方名称 (如未选择用户则必填)"
             :disabled="!!form.requesterUserId"
           />
           <p class="text-xs text-zinc-400 mt-1">
-            {{ form.requesterUserId ? 'Using selected customer name' : 'Enter external requester name' }}
+            {{ form.requesterUserId ? '使用已选用户名称' : '输入外部需求方名称' }}
           </p>
         </el-form-item>
       </div>
 
       <!-- Template Preview -->
       <div v-if="selectedTemplate" class="mt-4 p-4 bg-zinc-50 rounded-lg">
-        <p class="text-sm font-medium text-zinc-700 mb-2">Stage Preview:</p>
+        <p class="text-sm font-medium text-zinc-700 mb-2">阶段预览:</p>
         <StageTimeline
           :stages="selectedTemplate.stages"
           :compact="false"
@@ -125,9 +145,9 @@
     </el-form>
 
     <template #footer>
-      <el-button @click="$emit('update:modelValue', false)">Cancel</el-button>
+      <el-button @click="$emit('update:modelValue', false)">取消</el-button>
       <el-button type="primary" :loading="loading" @click="handleCreate">
-        Create Topic
+        创建课题
       </el-button>
     </template>
   </el-dialog>
@@ -139,8 +159,10 @@ import { useRouter } from 'vue-router';
 import { useTopicsStore } from '@/stores/topics';
 import { useTemplatesStore } from '@/stores/templates';
 import { useUsersStore } from '@/stores/users';
+import { useCapacityStore } from '@/stores/capacity';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import StageTimeline from './StageTimeline.vue';
+import type { CapacitySlot } from '@/types';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -154,6 +176,7 @@ const router = useRouter();
 const topicsStore = useTopicsStore();
 const templatesStore = useTemplatesStore();
 const usersStore = useUsersStore();
+const capacityStore = useCapacityStore();
 
 const formRef = ref<FormInstance>();
 const loading = ref(false);
@@ -163,24 +186,25 @@ const form = reactive({
   description: '',
   type: 'UNCERTAINTY' as const,
   urgency: 'P2' as const,
-  driId: undefined as number | undefined,
+  initialDriSlotId: undefined as number | undefined,
+  initialDriPercentage: 25,
   templateId: undefined as number | undefined,
   requesterName: '' as string,
   requesterUserId: undefined as number | undefined,
 });
 
 const rules: FormRules = {
-  title: [{ required: true, message: 'Please enter title', trigger: 'blur' }],
-  description: [{ required: true, message: 'Please enter description', trigger: 'blur' }],
-  type: [{ required: true, message: 'Please select type', trigger: 'change' }],
-  urgency: [{ required: true, message: 'Please select urgency', trigger: 'change' }],
-  driId: [{ required: true, message: 'Please select DRI', trigger: 'change' }],
-  templateId: [{ required: true, message: 'Please select template', trigger: 'change' }],
+  title: [{ required: true, message: '请输入课题名称', trigger: 'blur' }],
+  description: [{ required: true, message: '请输入课题描述', trigger: 'blur' }],
+  type: [{ required: true, message: '请选择类型', trigger: 'change' }],
+  urgency: [{ required: true, message: '请选择优先级', trigger: 'change' }],
+  initialDriSlotId: [{ required: true, message: '请选择负责人', trigger: 'change' }],
+  templateId: [{ required: true, message: '请选择流程模板', trigger: 'change' }],
   requesterName: [
     {
       validator: (rule, value, callback) => {
         if (!form.requesterUserId && (!value || !value.trim())) {
-          callback(new Error('Please enter requester name or select a customer'));
+          callback(new Error('请输入需求方名称或选择需求方用户'));
         } else {
           callback();
         }
@@ -195,10 +219,13 @@ const selectedTemplate = computed(() =>
   templates.value.find(t => t.id === form.templateId)
 );
 
-// EXTERNAL and CUSTOMER users cannot be DRI
-const eligibleDRIs = computed(() =>
-  usersStore.users.filter(u => u.role !== 'CUSTOMER')
-);
+// Slots for DRI selection
+const algoSlots = computed(() => capacityStore.algoSlots);
+const externalSlots = computed(() => capacityStore.externalSlots);
+
+function getSlotUsage(slot: CapacitySlot): number {
+  return capacityStore.getSlotUsage(slot);
+}
 
 // CUSTOMER users for requester selection
 const eligibleRequesters = computed(() =>
@@ -209,12 +236,14 @@ watch(() => props.modelValue, (open) => {
   if (open) {
     templatesStore.fetchTemplates();
     usersStore.fetchUsers();
+    capacityStore.fetchSlots();
     // Reset form
     form.title = '';
     form.description = '';
     form.type = 'UNCERTAINTY';
     form.urgency = 'P2';
-    form.driId = undefined;
+    form.initialDriSlotId = undefined;
+    form.initialDriPercentage = 25;
     form.templateId = undefined;
     form.requesterName = '';
     form.requesterUserId = undefined;
@@ -239,7 +268,7 @@ async function handleCreate() {
 
     // Validate requester: either requesterUserId or requesterName must be provided
     if (!form.requesterUserId && !form.requesterName?.trim()) {
-      ElMessage.error('Please enter requester name or select a customer');
+      ElMessage.error('请输入需求方名称或选择需求方用户');
       return;
     }
 
@@ -250,17 +279,18 @@ async function handleCreate() {
         description: form.description,
         type: form.type,
         urgency: form.urgency,
-        driId: form.driId!,
         templateId: form.templateId!,
         requesterName: form.requesterName,
         requesterUserId: form.requesterUserId,
+        initialDriSlotId: form.initialDriSlotId,
+        initialDriPercentage: form.initialDriPercentage,
       });
 
-      ElMessage.success('Topic created successfully');
+      ElMessage.success('课题创建成功');
       emit('update:modelValue', false);
       router.push(`/topics/${topic.id}`);
-    } catch (error) {
-      ElMessage.error('Failed to create topic');
+    } catch (error: any) {
+      ElMessage.error(error.response?.data?.detail || '创建失败');
     } finally {
       loading.value = false;
     }

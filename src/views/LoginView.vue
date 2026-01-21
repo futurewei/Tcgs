@@ -3,7 +3,7 @@
     <div class="w-full max-w-md">
       <div class="bg-white rounded-xl shadow-lg p-8">
         <div class="text-center mb-8">
-          <h1 class="text-2xl font-bold text-zinc-900">TCGS</h1>
+          <h1 class="text-2xl font-bold text-zinc-900">TCGS 课题治理系统</h1>
           <p class="text-zinc-500 mt-2">Topic & Capacity Governance System</p>
         </div>
 
@@ -14,20 +14,20 @@
           label-position="top"
           @submit.prevent="handleLogin"
         >
-          <el-form-item label="Email" prop="email">
+          <el-form-item label="邮箱" prop="email">
             <el-input
               v-model="form.email"
               type="email"
-              placeholder="Enter your email"
+              placeholder="请输入邮箱"
               size="large"
             />
           </el-form-item>
 
-          <el-form-item label="Password" prop="password">
+          <el-form-item label="密码" prop="password">
             <el-input
               v-model="form.password"
               type="password"
-              placeholder="Enter your password"
+              placeholder="请输入密码"
               size="large"
               show-password
             />
@@ -40,15 +40,16 @@
             :loading="loading"
             native-type="submit"
           >
-            Sign In
+            登录
           </el-button>
         </el-form>
 
         <div class="mt-6 p-4 bg-zinc-50 rounded-lg">
-          <p class="text-xs text-zinc-500 mb-2">Demo Accounts:</p>
+          <p class="text-xs text-zinc-500 mb-2">演示账号:</p>
           <div class="space-y-1 text-xs text-zinc-600">
-            <p><strong>Admin:</strong> admin@tcgs.local / admin123</p>
-            <p><strong>Member:</strong> member@tcgs.local / member123</p>
+            <p><strong>管理员:</strong> admin@tcgs.com / admin123</p>
+            <p><strong>算法成员:</strong> member@tcgs.com / member123</p>
+            <p><strong>需求方:</strong> pdt@tcgs.com / pdt123</p>
           </div>
         </div>
       </div>
@@ -75,12 +76,12 @@ const form = reactive({
 
 const rules: FormRules = {
   email: [
-    { required: true, message: 'Please enter email', trigger: 'blur' },
-    { type: 'email', message: 'Please enter valid email', trigger: 'blur' },
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' },
   ],
   password: [
-    { required: true, message: 'Please enter password', trigger: 'blur' },
-    { min: 6, message: 'Password must be at least 6 characters', trigger: 'blur' },
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码至少6个字符', trigger: 'blur' },
   ],
 };
 
@@ -94,13 +95,13 @@ async function handleLogin() {
     try {
       const success = await authStore.login(form.email, form.password);
       if (success) {
-        ElMessage.success('Welcome back!');
+        ElMessage.success('欢迎回来！');
         router.push('/dashboard');
       } else {
-        ElMessage.error('Invalid credentials');
+        ElMessage.error('登录失败，请检查账号密码');
       }
     } catch (error) {
-      ElMessage.error('Login failed. Please try again.');
+      ElMessage.error('登录失败，请重试');
     } finally {
       loading.value = false;
     }

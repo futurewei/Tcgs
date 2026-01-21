@@ -65,8 +65,6 @@ export interface Topic {
   type: TopicType;
   urgency: TopicUrgency;
   result: TopicResult;
-  driId: number;
-  dri: User;
   templateId: number;
   template: StageTemplate;
   stageStates: TopicStageState[];
@@ -77,8 +75,12 @@ export interface Topic {
   artifacts: Artifact[];
   reviews: ReviewComment[];
   bindings: Binding[];
+  deliverables: StageDeliverable[];
   createdAt: string;
   updatedAt: string;
+  // Legacy field - DRI is now determined by binding.isDri
+  driId?: number;
+  dri?: User;
 }
 
 export interface TopicCreateRequest {
@@ -86,10 +88,11 @@ export interface TopicCreateRequest {
   description: string;
   type: TopicType;
   urgency: TopicUrgency;
-  driId: number;
   templateId: number;
   requesterName: string;
   requesterUserId?: number;
+  initialDriSlotId?: number;  // First slot to bind as DRI
+  initialDriPercentage?: number;  // Default percentage for DRI binding
 }
 
 export interface TopicUpdateRequest {
@@ -97,7 +100,6 @@ export interface TopicUpdateRequest {
   description?: string;
   urgency?: TopicUrgency;
   result?: TopicResult;
-  driId?: number;
   currentStageId?: number;
 }
 
@@ -119,6 +121,37 @@ export interface ArtifactCreateRequest {
   stageId: number;
   title: string;
   content: string;
+}
+
+// Stage Deliverable Types
+export type DeliverableType = 'file' | 'link';
+
+export interface StageDeliverable {
+  id: number;
+  topicId: number;
+  stageId: number;
+  name: string;
+  type: DeliverableType;
+  url: string;
+  description?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  createdById: number;
+  createdBy?: User;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StageDeliverableCreateRequest {
+  stageId: number;
+  name: string;
+  type: DeliverableType;
+  url: string;
+  description?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
 }
 
 // Review Types
@@ -170,6 +203,7 @@ export interface Binding {
   slot?: CapacitySlot;
   percentage: number;
   isForced: boolean;
+  isDri: boolean;  // NEW: indicates if this is the DRI (first responsible person)
   createdAt: string;
   updatedAt: string;
 }
@@ -179,6 +213,7 @@ export interface BindingCreateRequest {
   slotId: number;
   percentage: number;
   isForced?: boolean;
+  isDri?: boolean;  // If true, this becomes the DRI
 }
 
 // Wiki Types
@@ -321,4 +356,9 @@ export interface ApiResponse<T> {
   data?: T;
   message?: string;
   error?: string;
+}
+
+// Change DRI Request
+export interface ChangeDRIRequest {
+  newDriSlotId: number;
 }
