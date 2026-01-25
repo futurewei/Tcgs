@@ -557,7 +557,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, ArrowRight, Plus, Right, MoreFilled, CircleCheck, Document, VideoPlay, Folder, Link } from '@element-plus/icons-vue';
+import { ArrowLeft, ArrowRight, Plus, Right, MoreFilled, CircleCheck, Document, VideoPlay, Folder, Link, DataLine} from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 
 import { useTopicsStore } from '@/stores/topics';
@@ -566,14 +566,12 @@ import { useUsersStore } from '@/stores/users';
 import { useAuthStore } from '@/stores/auth';
 import { topicsApi, riskApi } from '@/api';
 import type { Binding, Risk, Topic } from '@/types';
-import DataLine from '@element-plus/icons-vue/DataLine';
 
-import ChangeDRIDialog from '@/components/dialogs/ChangeDRIDialog.vue';
-import AddBindingDialog from '@/components/dialogs/AddBindingDialog.vue';
-import AddDeliverableDialog from '@/components/dialogs/AddDeliverableDialog.vue';
+import ChangeDRIDialog from '@/components/topic/ChangeDRIDialog.vue';
+import AddBindingDialog from '@/components/topic/AddBindingDialog.vue';
+import AddDeliverableDialog from '@/components/topic/AddDeliverableDialog.vue';
 import RichEditor from '@/components/common/RichEditor.vue';
-import CoreIdeasPanel from '@/components/topic/CoreIdeasPanel.vue';
-
+import CoreIdeasPanel from '@/components/topics/CoreIdeasPanel.vue';
 const route = useRoute();
 const router = useRouter();
 const topicsStore = useTopicsStore();

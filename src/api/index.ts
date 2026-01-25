@@ -1,4 +1,5 @@
 export { authApi } from './auth';
+export { riskApi } from './risks';
 export { topicsApi } from './topics';
 export { capacityApi } from './capacity';
 export { templatesApi } from './templates';
