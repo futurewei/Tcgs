@@ -7,7 +7,9 @@ from .template import StageTemplate, StageTemplateStage
 from .wiki import WikiDirection, WikiPage, WikiRevision
 from .attachment import Attachment
 from .audit import AuditLog
-from .deliverable import StageDeliverable, DeliverableType
+from .deliverable import StageDeliverable, DeliverableType, DeliverableCategory
+from .stage_instance import TopicStageInstance, TechPoint, TechPointContributor, StageInstanceStatus
+from .core_idea import CoreIdea, IdeaType, IdeaStatus, idea_stage_association
 
 __all__ = [
     "User",
@@ -26,4 +28,15 @@ __all__ = [
     "AuditLog",
     "StageDeliverable",
     "DeliverableType",
+    "DeliverableCategory",
+    # New stage instance models
+    "TopicStageInstance",
+    "TechPoint",
+    "TechPointContributor",
+    "StageInstanceStatus",
+    # Core idea models
+    "CoreIdea",
+    "IdeaType",
+    "IdeaStatus",
+    "idea_stage_association",
 ]

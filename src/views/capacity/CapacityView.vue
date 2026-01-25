@@ -1,29 +1,27 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-zinc-900">人力管理</h1>
+  <div class="capacity-page">
+    <div class="page-header">
+      <h1 class="page-title">人力管理</h1>
       <el-button v-if="authStore.isAdmin" type="primary" @click="showCreateSlot = true">
         添加人员
       </el-button>
     </div>
 
-    <div class="grid grid-cols-2 gap-6">
+    <div class="slots-grid">
       <!-- Algo Slots -->
-      <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-        <div class="p-4 border-b border-zinc-100">
-          <h2 class="font-semibold text-zinc-900">自有人力</h2>
-          <p class="text-sm text-zinc-500">内部算法团队成员</p>
+      <section class="tcgs-surface slots-section">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">自有人力</h2>
+            <p class="section-desc">内部算法团队成员</p>
+          </div>
         </div>
-        <div class="p-4 space-y-3">
-          <div
-            v-for="slot in algoSlots"
-            :key="slot.id"
-            class="p-4 bg-zinc-50 rounded-lg"
-          >
-            <div class="flex items-center justify-between mb-3">
-              <div class="flex items-center gap-3">
-                <SlotChip :slot="slot" />
-                <span v-if="slot.user" class="text-sm text-zinc-600">{{ slot.user.name }}</span>
+        <div class="slots-list">
+          <div v-for="slot in algoSlots" :key="slot.id" class="slot-card internal">
+            <div class="slot-header">
+              <div class="slot-info">
+                <SlotChip :slot="slot" :clickable="true" />
+                <router-link v-if="slot.user" :to="`/profile/user/${slot.user.id}`" class="slot-user">{{ slot.user.name }}</router-link>
               </div>
               <el-dropdown v-if="authStore.isAdmin" trigger="click">
                 <el-button size="small" text>
@@ -38,10 +36,10 @@
               </el-dropdown>
             </div>
 
-            <div class="mb-2">
-              <div class="flex items-center justify-between text-xs text-zinc-500 mb-1">
-                <span>容量使用</span>
-                <span>{{ getSlotUsage(slot) }}%</span>
+            <div class="slot-progress">
+              <div class="progress-header">
+                <span class="progress-label">容量使用</span>
+                <span class="progress-value">{{ getSlotUsage(slot) }}%</span>
               </div>
               <el-progress
                 :percentage="getSlotUsage(slot)"
@@ -50,40 +48,34 @@
               />
             </div>
 
-            <div v-if="slot.bindings?.length" class="mt-3 space-y-1">
-              <p class="text-xs font-medium text-zinc-500">分配详情:</p>
-              <div
-                v-for="binding in slot.bindings"
-                :key="binding.id"
-                class="flex items-center justify-between text-xs"
-              >
-                <span class="text-zinc-600">{{ binding.topic?.title || `课题 #${binding.topicId}` }}</span>
-                <span class="text-zinc-500">{{ binding.percentage }}%</span>
+            <div v-if="slot.bindings?.length" class="slot-bindings">
+              <p class="bindings-title">分配详情:</p>
+              <div v-for="binding in slot.bindings" :key="binding.id" class="binding-row">
+                <span class="binding-topic">{{ binding.topic?.title || `课题 #${binding.topicId}` }}</span>
+                <span class="binding-percent">{{ binding.percentage }}%</span>
               </div>
             </div>
           </div>
-          <div v-if="algoSlots.length === 0" class="text-center py-8 text-zinc-400">
+          <div v-if="algoSlots.length === 0" class="empty-state">
             暂无自有人力
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- External Slots -->
-      <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-        <div class="p-4 border-b border-zinc-100">
-          <h2 class="font-semibold text-zinc-900">协调人力</h2>
-          <p class="text-sm text-zinc-500">外部协作人员</p>
+      <section class="tcgs-surface slots-section">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">协调人力</h2>
+            <p class="section-desc">外部协作人员</p>
+          </div>
         </div>
-        <div class="p-4 space-y-3">
-          <div
-            v-for="slot in externalSlots"
-            :key="slot.id"
-            class="p-4 bg-zinc-50 rounded-lg border border-dashed border-zinc-200"
-          >
-            <div class="flex items-center justify-between mb-3">
-              <div class="flex items-center gap-3">
-                <SlotChip :slot="slot" />
-                <span v-if="slot.user" class="text-sm text-zinc-500">{{ slot.user.name }}</span>
+        <div class="slots-list">
+          <div v-for="slot in externalSlots" :key="slot.id" class="slot-card external">
+            <div class="slot-header">
+              <div class="slot-info">
+                <SlotChip :slot="slot" :clickable="true" />
+                <router-link v-if="slot.user" :to="`/profile/user/${slot.user.id}`" class="slot-user external">{{ slot.user.name }}</router-link>
               </div>
               <el-dropdown v-if="authStore.isAdmin" trigger="click">
                 <el-button size="small" text>
@@ -98,10 +90,10 @@
               </el-dropdown>
             </div>
 
-            <div class="mb-2">
-              <div class="flex items-center justify-between text-xs text-zinc-500 mb-1">
-                <span>容量使用</span>
-                <span>{{ getSlotUsage(slot) }}%</span>
+            <div class="slot-progress">
+              <div class="progress-header">
+                <span class="progress-label">容量使用</span>
+                <span class="progress-value">{{ getSlotUsage(slot) }}%</span>
               </div>
               <el-progress
                 :percentage="getSlotUsage(slot)"
@@ -110,23 +102,19 @@
               />
             </div>
 
-            <div v-if="slot.bindings?.length" class="mt-3 space-y-1">
-              <p class="text-xs font-medium text-zinc-500">分配详情:</p>
-              <div
-                v-for="binding in slot.bindings"
-                :key="binding.id"
-                class="flex items-center justify-between text-xs"
-              >
-                <span class="text-zinc-500">{{ binding.topic?.title || `课题 #${binding.topicId}` }}</span>
-                <span class="text-zinc-400">{{ binding.percentage }}%</span>
+            <div v-if="slot.bindings?.length" class="slot-bindings">
+              <p class="bindings-title">分配详情:</p>
+              <div v-for="binding in slot.bindings" :key="binding.id" class="binding-row">
+                <span class="binding-topic">{{ binding.topic?.title || `课题 #${binding.topicId}` }}</span>
+                <span class="binding-percent">{{ binding.percentage }}%</span>
               </div>
             </div>
           </div>
-          <div v-if="externalSlots.length === 0" class="text-center py-8 text-zinc-400">
+          <div v-if="externalSlots.length === 0" class="empty-state">
             暂无协调人力
           </div>
         </div>
-      </div>
+      </section>
     </div>
 
     <!-- Create/Edit Slot Dialog -->
@@ -135,35 +123,24 @@
         <el-form-item label="名称" prop="name">
           <el-input v-model="form.name" placeholder="人员名称" />
         </el-form-item>
-
         <el-form-item label="类型" prop="type">
           <el-radio-group v-model="form.type">
             <el-radio value="ALGO">自有人力</el-radio>
             <el-radio value="EXTERNAL">协调人力</el-radio>
           </el-radio-group>
         </el-form-item>
-
         <el-form-item label="关联用户 (可选)">
           <el-select v-model="form.userId" class="w-full" clearable filterable placeholder="选择用户">
-            <el-option
-              v-for="user in usersStore.users"
-              :key="user.id"
-              :value="user.id"
-              :label="user.name"
-            />
+            <el-option v-for="user in usersStore.users" :key="user.id" :value="user.id" :label="user.name" />
           </el-select>
         </el-form-item>
-
         <el-form-item label="总容量 (%)" prop="totalCapacity">
           <el-input-number v-model="form.totalCapacity" :min="10" :max="200" :step="10" />
         </el-form-item>
       </el-form>
-
       <template #footer>
         <el-button @click="showCreateSlot = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="saveSlot">
-          {{ editingSlot ? '更新' : '创建' }}
-        </el-button>
+        <el-button type="primary" :loading="saving" @click="saveSlot">{{ editingSlot ? '更新' : '创建' }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -219,24 +196,16 @@ function editSlot(slot: CapacitySlot) {
 
 async function deleteSlot(slot: CapacitySlot) {
   try {
-    await ElMessageBox.confirm(
-      '确定要删除此人员？',
-      '删除人员',
-      { type: 'warning' }
-    );
+    await ElMessageBox.confirm('确定要删除此人员？', '删除人员', { type: 'warning' });
     await capacityStore.deleteSlot(slot.id);
     ElMessage.success('删除成功');
-  } catch (error) {
-    // Cancelled
-  }
+  } catch (error) {}
 }
 
 async function saveSlot() {
   if (!formRef.value) return;
-
   await formRef.value.validate(async (valid) => {
     if (!valid) return;
-
     saving.value = true;
     try {
       if (editingSlot.value) {
@@ -265,3 +234,151 @@ onMounted(() => {
   usersStore.fetchUsers();
 });
 </script>
+
+<style scoped>
+.capacity-page {
+  padding: var(--space-5);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+.page-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.slots-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-5);
+}
+@media (max-width: 1024px) {
+  .slots-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.slots-section {
+  overflow: hidden;
+}
+.section-header {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border-light);
+}
+.section-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+.section-desc {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  margin: var(--space-1) 0 0 0;
+}
+
+.slots-list {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.slot-card {
+  padding: var(--space-4);
+  background: var(--color-neutral-50);
+  border-radius: var(--radius-md);
+}
+.slot-card.internal {
+  border: 1px solid var(--color-border-light);
+}
+.slot-card.external {
+  border: 1px dashed var(--color-member-external-border);
+  background: var(--color-member-external-bg);
+}
+
+.slot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+.slot-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.slot-user {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+.slot-user:hover {
+  color: var(--color-primary);
+}
+.slot-user.external {
+  color: var(--color-text-tertiary);
+}
+
+.slot-progress {
+  margin-bottom: var(--space-2);
+}
+.progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-1);
+}
+.progress-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+.progress-value {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.slot-bindings {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-light);
+}
+.bindings-title {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--color-text-tertiary);
+  margin: 0 0 var(--space-2) 0;
+}
+.binding-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  padding: var(--space-1) 0;
+}
+.binding-topic {
+  color: var(--color-text-secondary);
+}
+.binding-percent {
+  color: var(--color-text-tertiary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-6);
+  color: var(--color-text-disabled);
+  font-size: var(--text-sm);
+}
+
+.w-full {
+  width: 100%;
+}
+</style>

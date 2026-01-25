@@ -1,0 +1,534 @@
+/**
+ * TCGS Component Styles v2.0 - Engineered Calm
+ * 
+ * 设计原则：
+ * - DRI 不再是普通 tag：提升为独占字段，更强视觉权重
+ * - 内部/外协层级差异：外协更低权重（灰度/描边），内部成员更明确
+ * - 状态从"糖果"变为"流程状态"：用小型 badge + 文案表达
+ */
+
+/* ══════════════════════════════════════════════════════════════
+   GLOBAL BASE
+   ══════════════════════════════════════════════════════════════ */
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PAGE LAYOUT
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-page {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+.tcgs-page-header {
+  margin-bottom: var(--space-6);
+}
+
+.tcgs-page-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+
+.tcgs-page-subtitle {
+  font-size: var(--text-md);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-1);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SURFACE / CARD - 治理感容器
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-card {
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.tcgs-card--interactive {
+  transition: border-color var(--transition-fast);
+  cursor: pointer;
+}
+
+.tcgs-card--interactive:hover {
+  border-color: var(--color-border-default);
+}
+
+.tcgs-card--elevated {
+  box-shadow: var(--shadow-sm);
+}
+
+/* Card Header */
+.tcgs-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.tcgs-card-title {
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: var(--tracking-tight);
+}
+
+.tcgs-card-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  margin-left: var(--space-2);
+  background: var(--color-neutral-100);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-tertiary);
+}
+
+.tcgs-card-body {
+  padding: var(--space-4) var(--space-5);
+}
+
+.tcgs-card-footer {
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-secondary);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   SECTION PANEL - 模块面板
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-panel {
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.tcgs-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-secondary);
+}
+
+.tcgs-panel-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.tcgs-panel-body {
+  padding: var(--space-4);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BADGE / STATUS - 状态徽章（流程状态感）
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 8px;
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
+
+.tcgs-badge--neutral {
+  background: var(--color-neutral-100);
+  color: var(--color-text-secondary);
+}
+
+.tcgs-badge--primary {
+  background: var(--color-primary-100);
+  color: var(--color-primary-600);
+}
+
+.tcgs-badge--success {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.tcgs-badge--warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.tcgs-badge--danger {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+/* 状态点 */
+.tcgs-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.tcgs-badge-dot--pending { background: var(--color-stage-pending); }
+.tcgs-badge-dot--active { 
+  background: var(--color-stage-active);
+  animation: tcgs-pulse 2s infinite;
+}
+.tcgs-badge-dot--done { background: var(--color-stage-done); }
+.tcgs-badge-dot--blocked { background: var(--color-stage-blocked); }
+
+@keyframes tcgs-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DRI FIELD - 主责人（独占字段，视觉权重最高）
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-dri {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tcgs-dri-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+}
+
+.tcgs-dri-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: var(--space-1) var(--space-2-5);
+  background: var(--color-dri-bg);
+  border: 1px solid var(--color-dri-border);
+  border-radius: var(--radius-md);
+}
+
+.tcgs-dri-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--color-dri);
+  border-radius: var(--radius-full);
+}
+
+.tcgs-dri-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-dri);
+}
+
+.tcgs-dri-tag {
+  padding: 1px 5px;
+  background: var(--color-primary);
+  border-radius: var(--radius-xs);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  color: var(--color-text-inverse);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MEMBER CHIP - 人员标签（内部/外协差异）
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-member {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: var(--space-1) var(--space-2-5);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  transition: background-color var(--transition-fast);
+}
+
+/* 内部成员 - 更强调 */
+.tcgs-member--internal {
+  background: var(--color-member-internal-bg);
+  color: var(--color-member-internal);
+}
+
+.tcgs-member--internal:hover {
+  background: var(--color-neutral-150);
+}
+
+.tcgs-member--internal .tcgs-member-dot {
+  background: var(--color-neutral-500);
+}
+
+/* 外协人员 - 更低权重（描边） */
+.tcgs-member--external {
+  background: transparent;
+  color: var(--color-member-external);
+  border: 1px dashed var(--color-member-external-border);
+}
+
+.tcgs-member--external:hover {
+  background: var(--color-neutral-50);
+}
+
+.tcgs-member--external .tcgs-member-dot {
+  background: var(--color-neutral-400);
+}
+
+.tcgs-member-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   PRIORITY TAG - 优先级（P0/P1/P2）
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-priority {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.02em;
+}
+
+.tcgs-priority--p0 {
+  background: var(--color-priority-p0-bg);
+  color: var(--color-priority-p0);
+}
+
+.tcgs-priority--p1 {
+  background: var(--color-priority-p1-bg);
+  color: var(--color-priority-p1);
+}
+
+.tcgs-priority--p2 {
+  background: var(--color-priority-p2-bg);
+  color: var(--color-priority-p2);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   STAGE FLOW - 阶段流程（时间线感）
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-stages {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.tcgs-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  white-space: nowrap;
+}
+
+.tcgs-stage--pending {
+  background: var(--color-neutral-100);
+  color: var(--color-text-muted);
+}
+
+.tcgs-stage--active {
+  background: var(--color-primary-100);
+  color: var(--color-primary-600);
+  box-shadow: inset 0 0 0 1px var(--color-primary-200);
+}
+
+.tcgs-stage--done {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.tcgs-stage-arrow {
+  color: var(--color-text-disabled);
+  font-size: 10px;
+}
+
+.tcgs-stage-icon {
+  font-size: 10px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LIST ITEM - 列表项
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.tcgs-list-item {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  transition: background-color var(--transition-fast);
+}
+
+.tcgs-list-item:last-child {
+  border-bottom: none;
+}
+
+.tcgs-list-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.tcgs-list-item--clickable {
+  cursor: pointer;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   STAT BLOCK - 统计数据
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.tcgs-stat-value {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.tcgs-stat-value--success {
+  color: var(--color-success);
+}
+
+.tcgs-stat-value--danger {
+  color: var(--color-danger);
+}
+
+.tcgs-stat-label {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-1);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DIVIDER
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-divider {
+  height: 1px;
+  background: var(--color-border-subtle);
+  margin: var(--space-4) 0;
+}
+
+.tcgs-divider--vertical {
+  width: 1px;
+  height: auto;
+  margin: 0 var(--space-3);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   EMPTY STATE
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10) var(--space-6);
+  color: var(--color-text-muted);
+}
+
+.tcgs-empty-icon {
+  font-size: 40px;
+  margin-bottom: var(--space-3);
+  opacity: 0.4;
+}
+
+.tcgs-empty-text {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TOOLBAR
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PROGRESS BAR
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-progress {
+  height: 4px;
+  background: var(--color-neutral-150);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.tcgs-progress-bar {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-sm);
+  transition: width var(--duration-slow) var(--ease-out);
+}
+
+.tcgs-progress-bar--success { background: var(--color-success); }
+.tcgs-progress-bar--warning { background: var(--color-warning); }
+.tcgs-progress-bar--danger { background: var(--color-danger); }
+
+/* ══════════════════════════════════════════════════════════════
+   SCROLLBAR (Custom)
+   ══════════════════════════════════════════════════════════════ */
+.tcgs-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.tcgs-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tcgs-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-300);
+  border-radius: var(--radius-full);
+}
+
+.tcgs-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neutral-400);
+}

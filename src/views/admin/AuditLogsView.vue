@@ -1,61 +1,52 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-zinc-900">Audit Log</h1>
+  <div class="audit-page">
+    <div class="page-header">
+      <h1 class="page-title">审计日志</h1>
       <el-button @click="fetchLogs">
-        <el-icon class="mr-1"><Refresh /></el-icon>
-        Refresh
+        <el-icon class="mr-1"><Refresh /></el-icon>刷新
       </el-button>
     </div>
 
-    <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+    <section class="tcgs-surface">
       <el-table :data="logs" v-loading="loading">
-        <el-table-column label="Timestamp" width="180">
+        <el-table-column label="时间" width="180">
           <template #default="{ row }">
-            <span class="text-sm text-zinc-600">{{ formatDate(row.createdAt) }}</span>
+            <span class="date-text">{{ formatDate(row.createdAt) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Action" width="200">
+        <el-table-column label="操作" width="200">
           <template #default="{ row }">
-            <el-tag :type="getActionType(row.action)" size="small">
-              {{ row.action }}
-            </el-tag>
+            <span :class="['action-badge', getActionType(row.action)]">{{ row.action }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Entity" width="150">
+        <el-table-column label="对象" width="150">
           <template #default="{ row }">
-            <div class="text-sm">
-              <span class="text-zinc-600">{{ row.entityType }}</span>
-              <span class="text-zinc-400"> #{{ row.entityId }}</span>
+            <div class="entity-cell">
+              <span class="entity-type">{{ row.entityType }}</span>
+              <span class="entity-id">#{{ row.entityId }}</span>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="User" width="150">
+        <el-table-column label="用户" width="150">
           <template #default="{ row }">
-            <div class="flex items-center gap-2">
-              <div class="w-6 h-6 bg-zinc-200 rounded-full flex items-center justify-center text-xs">
-                {{ getInitials(row.user?.name) }}
-              </div>
-              <span class="text-sm">{{ row.user?.name }}</span>
+            <div class="user-cell">
+              <div class="user-avatar">{{ getInitials(row.user?.name) }}</div>
+              <span class="user-name">{{ row.user?.name }}</span>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Changes" min-width="300">
+        <el-table-column label="变更" min-width="300">
           <template #default="{ row }">
-            <div v-if="row.oldValue || row.newValue" class="text-xs">
-              <div v-if="row.oldValue" class="text-rose-600">
-                - {{ truncate(row.oldValue) }}
-              </div>
-              <div v-if="row.newValue" class="text-emerald-600">
-                + {{ truncate(row.newValue) }}
-              </div>
+            <div v-if="row.oldValue || row.newValue" class="changes-cell">
+              <div v-if="row.oldValue" class="change-old">- {{ truncate(row.oldValue) }}</div>
+              <div v-if="row.newValue" class="change-new">+ {{ truncate(row.newValue) }}</div>
             </div>
-            <span v-else class="text-zinc-400 text-sm">-</span>
+            <span v-else class="no-changes">-</span>
           </template>
         </el-table-column>
       </el-table>
 
-      <div class="p-4 border-t border-zinc-100 flex justify-center">
+      <div class="pagination-wrapper">
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.pageSize"
@@ -66,7 +57,7 @@
           @current-change="fetchLogs"
         />
       </div>
-    </div>
+    </section>
   </div>
 </template>
 
@@ -79,33 +70,17 @@ import type { AuditLog, AuditAction } from '@/types';
 
 const loading = ref(false);
 const logs = ref<AuditLog[]>([]);
+const pagination = reactive({ page: 1, pageSize: 20, total: 0 });
 
-const pagination = reactive({
-  page: 1,
-  pageSize: 50,
-  total: 0,
-});
-
-function formatDate(date: string) {
-  return dayjs(date).format('YYYY-MM-DD HH:mm:ss');
-}
-
-function getInitials(name?: string) {
-  if (!name) return '';
-  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-}
-
+function formatDate(date: string) { return dayjs(date).format('YYYY-MM-DD HH:mm'); }
+function getInitials(name?: string) { return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : '??'; }
 function getActionType(action: AuditAction) {
   if (action.includes('CREATE')) return 'success';
   if (action.includes('DELETE')) return 'danger';
   if (action.includes('FORCE')) return 'warning';
   return 'info';
 }
-
-function truncate(text: string, length = 100) {
-  if (text.length <= length) return text;
-  return text.slice(0, length) + '...';
-}
+function truncate(text: string, length = 100) { return text.length <= length ? text : text.slice(0, length) + '...'; }
 
 async function fetchLogs() {
   loading.value = true;
@@ -114,61 +89,77 @@ async function fetchLogs() {
     logs.value = response.items;
     pagination.total = response.total;
   } catch (error) {
-    console.error('Failed to fetch audit logs:', error);
-    // Use mock data
+    // Mock data
     logs.value = [
-      {
-        id: 1,
-        action: 'TOPIC_CREATE',
-        entityType: 'Topic',
-        entityId: 15,
-        oldValue: undefined,
-        newValue: JSON.stringify({ title: 'New Algorithm Research' }),
-        userId: 1,
-        user: { id: 1, email: 'admin@tcgs.local', name: 'Admin User', role: 'ADMIN', createdAt: '', updatedAt: '' },
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        action: 'DRI_CHANGE',
-        entityType: 'Topic',
-        entityId: 12,
-        oldValue: 'Alice Chen',
-        newValue: 'Bob Wang',
-        userId: 1,
-        user: { id: 1, email: 'admin@tcgs.local', name: 'Admin User', role: 'ADMIN', createdAt: '', updatedAt: '' },
-        createdAt: new Date(Date.now() - 3600000).toISOString(),
-      },
-      {
-        id: 3,
-        action: 'RESULT_CHANGE',
-        entityType: 'Topic',
-        entityId: 8,
-        oldValue: 'OPEN',
-        newValue: 'SUCCESS',
-        userId: 2,
-        user: { id: 2, email: 'member@tcgs.local', name: 'Member User', role: 'MEMBER', createdAt: '', updatedAt: '' },
-        createdAt: new Date(Date.now() - 7200000).toISOString(),
-      },
-      {
-        id: 4,
-        action: 'BINDING_FORCE',
-        entityType: 'Binding',
-        entityId: 5,
-        oldValue: undefined,
-        newValue: JSON.stringify({ slotId: 3, percentage: 50, isForced: true }),
-        userId: 1,
-        user: { id: 1, email: 'admin@tcgs.local', name: 'Admin User', role: 'ADMIN', createdAt: '', updatedAt: '' },
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-      },
+      { id: 1, action: 'TOPIC_CREATE', entityType: 'Topic', entityId: 15, oldValue: undefined, newValue: JSON.stringify({ title: '新算法研究' }), userId: 1, user: { id: 1, email: 'admin@tcgs.local', name: '管理员', role: 'ADMIN', createdAt: '', updatedAt: '' }, createdAt: new Date().toISOString() },
+      { id: 2, action: 'DRI_CHANGE', entityType: 'Topic', entityId: 12, oldValue: '张工', newValue: '王工', userId: 1, user: { id: 1, email: 'admin@tcgs.local', name: '管理员', role: 'ADMIN', createdAt: '', updatedAt: '' }, createdAt: new Date(Date.now() - 3600000).toISOString() },
     ];
-    pagination.total = 4;
+    pagination.total = 2;
   } finally {
     loading.value = false;
   }
 }
 
-onMounted(() => {
-  fetchLogs();
-});
+onMounted(() => fetchLogs());
 </script>
+
+<style scoped>
+.audit-page {
+  padding: var(--space-6);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+
+.page-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+}
+
+.date-text {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.action-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+}
+
+.action-badge.success { background: var(--color-success-bg); color: var(--color-success); }
+.action-badge.danger { background: var(--color-danger-bg); color: var(--color-danger); }
+.action-badge.warning { background: var(--color-warning-bg); color: var(--color-warning); }
+.action-badge.info { background: var(--color-info-bg); color: var(--color-info); }
+
+.entity-cell { font-size: var(--text-sm); }
+.entity-type { color: var(--color-text-secondary); }
+.entity-id { color: var(--color-text-disabled); margin-left: var(--space-1); }
+
+.user-cell { display: flex; align-items: center; gap: var(--space-2); }
+.user-avatar {
+  width: 24px; height: 24px; background: var(--color-neutral-200);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: var(--font-medium); color: var(--color-text-secondary);
+}
+.user-name { font-size: var(--text-sm); color: var(--color-text-primary); }
+
+.changes-cell { font-size: var(--text-xs); font-family: var(--font-mono); }
+.change-old { color: var(--color-danger); }
+.change-new { color: var(--color-success); }
+.no-changes { color: var(--color-text-disabled); font-size: var(--text-sm); }
+
+.pagination-wrapper {
+  display: flex; justify-content: center; padding: var(--space-4);
+  border-top: 1px solid var(--color-border-light);
+}
+</style>

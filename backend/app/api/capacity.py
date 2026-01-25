@@ -4,7 +4,7 @@ from typing import Optional, List
 from ..database import get_db
 from ..models.user import User, UserRole
 from ..models.topic import Topic
-from ..models.capacity import CapacitySlot, Binding
+from ..models.capacity import CapacitySlot, Binding, SlotType
 from ..models.audit import AuditAction
 from ..schemas.capacity import (
     SlotCreate, SlotUpdate, SlotResponse,
@@ -22,6 +22,30 @@ def list_slots(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    列出所有人力槽位。
+    自动为没有 Slot 的 MEMBER/REVIEWER/EXTERNAL 用户创建 Slot。
+    """
+    # 自动为没有 Slot 的用户创建 Slot
+    users_needing_slots = db.query(User).filter(
+        User.role.in_([UserRole.MEMBER, UserRole.REVIEWER, UserRole.EXTERNAL]),
+        ~User.id.in_(db.query(CapacitySlot.user_id).filter(CapacitySlot.user_id.isnot(None)))
+    ).all()
+    
+    for user in users_needing_slots:
+        slot_type = SlotType.EXTERNAL if user.role == UserRole.EXTERNAL else SlotType.ALGO
+        new_slot = CapacitySlot(
+            name=user.name,
+            type=slot_type,
+            user_id=user.id,
+            total_capacity=100
+        )
+        db.add(new_slot)
+    
+    if users_needing_slots:
+        db.commit()
+    
+    # 查询所有 Slot
     query = db.query(CapacitySlot).options(
         joinedload(CapacitySlot.user),
         joinedload(CapacitySlot.bindings)
@@ -153,16 +177,34 @@ def create_binding(
     if binding_data.is_forced and current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Only admin can force bindings")
 
-    # Check capacity
-    slot = db.query(CapacitySlot).options(
-        joinedload(CapacitySlot.user)
-    ).filter(CapacitySlot.id == binding_data.slot_id).first()
-    if not slot:
-        raise HTTPException(status_code=404, detail="Slot not found")
+    # 支持两种方式：user_id（新）或 slot_id（旧）
+    target_user = None
+    slot = None
+    
+    if binding_data.user_id:
+        # 新方式：直接用 user_id
+        target_user = db.query(User).filter(User.id == binding_data.user_id).first()
+        if not target_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # 检查用户工时
+        current_usage = sum(b.percentage for b in target_user.bindings) if target_user.bindings else 0
+        if current_usage + binding_data.percentage > target_user.total_capacity and not binding_data.is_forced:
+            raise HTTPException(status_code=400, detail="Exceeds user capacity. Use force option.")
+    elif binding_data.slot_id:
+        # 旧方式：用 slot_id（向后兼容）
+        slot = db.query(CapacitySlot).options(
+            joinedload(CapacitySlot.user)
+        ).filter(CapacitySlot.id == binding_data.slot_id).first()
+        if not slot:
+            raise HTTPException(status_code=404, detail="Slot not found")
+        target_user = slot.user
 
-    current_usage = sum(b.percentage for b in slot.bindings)
-    if current_usage + binding_data.percentage > slot.total_capacity and not binding_data.is_forced:
-        raise HTTPException(status_code=400, detail="Exceeds slot capacity. Use force option.")
+        current_usage = sum(b.percentage for b in slot.bindings)
+        if current_usage + binding_data.percentage > slot.total_capacity and not binding_data.is_forced:
+            raise HTTPException(status_code=400, detail="Exceeds slot capacity. Use force option.")
+    else:
+        raise HTTPException(status_code=400, detail="Either user_id or slot_id is required")
 
     # Check if this is the first binding for this topic
     topic = db.query(Topic).options(
@@ -193,6 +235,7 @@ def create_binding(
     binding = Binding(
         topic_id=binding_data.topic_id,
         slot_id=binding_data.slot_id,
+        user_id=binding_data.user_id or (slot.user_id if slot else None),
         percentage=binding_data.percentage,
         is_forced=binding_data.is_forced,
         is_dri=should_be_dri
@@ -200,8 +243,8 @@ def create_binding(
     db.add(binding)
     
     # Update legacy dri_id for backward compatibility
-    if should_be_dri and slot.user_id:
-        topic.dri_id = slot.user_id
+    if should_be_dri and target_user:
+        topic.dri_id = target_user.id
     
     db.commit()
     db.refresh(binding)
@@ -210,13 +253,15 @@ def create_binding(
     AuditService.log(db, action, "Binding", binding.id, current_user,
                      new_value={
                          "slot_id": binding.slot_id, 
-                         "slot_name": slot.name,
+                         "user_id": binding.user_id,
+                         "user_name": target_user.name if target_user else None,
                          "percentage": binding.percentage,
                          "is_dri": binding.is_dri
                      })
 
     return db.query(Binding).options(
-        joinedload(Binding.slot).joinedload(CapacitySlot.user)
+        joinedload(Binding.slot).joinedload(CapacitySlot.user),
+        joinedload(Binding.user)
     ).filter(Binding.id == binding.id).first()
 
 
@@ -300,3 +345,67 @@ def delete_binding(
     db.commit()
 
     return {"message": "Binding deleted"}
+
+
+# ============ 新的基于 User 的人力 API ============
+
+@router.get("/workforce")
+def list_workforce(
+    type: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取可分配人力列表（基于 User）
+    - type=ALGO: MEMBER + REVIEWER 角色用户（自有人力）
+    - type=EXTERNAL: EXTERNAL 角色用户（协调人力）
+    - 不传 type: 返回所有可分配人力
+    """
+    query = db.query(User).options(
+        joinedload(User.bindings)
+    )
+    
+    if type == "ALGO":
+        # 自有人力：MEMBER 和 REVIEWER
+        query = query.filter(User.role.in_([UserRole.MEMBER, UserRole.REVIEWER]))
+    elif type == "EXTERNAL":
+        query = query.filter(User.role == UserRole.EXTERNAL)
+    else:
+        # 所有可分配人力
+        query = query.filter(User.role.in_([UserRole.MEMBER, UserRole.REVIEWER, UserRole.EXTERNAL]))
+    
+    users = query.order_by(User.name).all()
+    
+    result = []
+    for user in users:
+        # 计算已使用的工时
+        used_capacity = sum(b.percentage for b in user.bindings) if user.bindings else 0
+        
+        # 构造与 Slot 兼容的响应格式
+        result.append({
+            "id": user.id,
+            "name": user.name,
+            "type": "ALGO" if user.role == UserRole.MEMBER else "EXTERNAL",
+            "userId": user.id,
+            "user": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "role": user.role.value,
+            },
+            "totalCapacity": user.total_capacity,
+            "usedCapacity": used_capacity,
+            "remainingCapacity": user.total_capacity - used_capacity,
+            "bindings": [
+                {
+                    "id": b.id,
+                    "topicId": b.topic_id,
+                    "userId": b.user_id,
+                    "percentage": b.percentage,
+                    "isDri": b.is_dri,
+                }
+                for b in user.bindings
+            ] if user.bindings else [],
+        })
+    
+    return result

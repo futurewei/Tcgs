@@ -16,7 +16,18 @@ from pydantic import BaseModel
 router = APIRouter()
 
 
-class DashboardKPI(BaseModel):
+def to_camel(string: str) -> str:
+    components = string.split('_')
+    return components[0] + ''.join(x.title() for x in components[1:])
+
+
+class CamelModel(BaseModel):
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
+class DashboardKPI(CamelModel):
     total_topics: int
     open_topics: int
     success_topics: int
@@ -26,7 +37,7 @@ class DashboardKPI(BaseModel):
     evolution_count: int
 
 
-class ThroughputData(BaseModel):
+class ThroughputData(CamelModel):
     month: str
     new_topics: int
     closed_topics: int
@@ -34,7 +45,7 @@ class ThroughputData(BaseModel):
     evolution: int
 
 
-class PersonLoadData(BaseModel):
+class PersonLoadData(CamelModel):
     user_id: int
     user_name: str
     dri_topics: int
@@ -42,7 +53,7 @@ class PersonLoadData(BaseModel):
     total_percentage: int
 
 
-class ExternalCollabData(BaseModel):
+class ExternalCollabData(CamelModel):
     user_id: int
     user_name: str
     topic_count: int
@@ -155,32 +166,40 @@ def get_person_load(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Get all ALGO slots with their users
-    algo_slots = db.query(CapacitySlot).options(
-        joinedload(CapacitySlot.user),
-        joinedload(CapacitySlot.bindings)
-    ).filter(CapacitySlot.type == SlotType.ALGO).all()
+    """获取算法团队负载 - 按用户去重"""
+    # 获取所有 MEMBER 和 REVIEWER 用户
+    algo_users = db.query(User).filter(
+        User.role.in_([UserRole.MEMBER, UserRole.REVIEWER])
+    ).all()
 
     result = []
-    for slot in algo_slots:
-        if not slot.user:
-            continue
-
+    for user in algo_users:
         # Count DRI topics
         dri_topics = db.query(Topic).filter(
-            Topic.dri_id == slot.user_id,
+            Topic.dri_id == user.id,
             Topic.result == TopicResult.OPEN
         ).count()
 
-        # Count collaboration (bindings)
-        collab_topics = len([b for b in slot.bindings])
+        # 获取用户的所有 bindings（通过 slot）
+        user_slots = db.query(CapacitySlot).filter(
+            CapacitySlot.user_id == user.id
+        ).all()
+        
+        all_bindings = []
+        for slot in user_slots:
+            bindings = db.query(Binding).filter(Binding.slot_id == slot.id).all()
+            all_bindings.extend(bindings)
+
+        # Count collaboration (unique topics)
+        collab_topic_ids = set(b.topic_id for b in all_bindings)
+        collab_topics = len(collab_topic_ids)
 
         # Total percentage
-        total_pct = sum(b.percentage for b in slot.bindings)
+        total_pct = sum(b.percentage for b in all_bindings)
 
         result.append(PersonLoadData(
-            user_id=slot.user_id,
-            user_name=slot.user.name,
+            user_id=user.id,
+            user_name=user.name,
             dri_topics=dri_topics,
             collaboration_topics=collab_topics,
             total_percentage=total_pct
@@ -194,29 +213,40 @@ def get_external_collab(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Get all EXTERNAL slots
-    external_slots = db.query(CapacitySlot).options(
-        joinedload(CapacitySlot.user),
-        joinedload(CapacitySlot.bindings).joinedload(Binding.topic)
-    ).filter(CapacitySlot.type == SlotType.EXTERNAL).all()
+    """获取外部协作数据 - 按用户去重"""
+    # 获取所有 EXTERNAL 用户
+    external_users = db.query(User).filter(
+        User.role == UserRole.EXTERNAL
+    ).all()
 
     result = []
-    for slot in external_slots:
-        if not slot.user:
-            continue
+    for user in external_users:
+        # 获取用户的所有 bindings（通过 slot）
+        user_slots = db.query(CapacitySlot).filter(
+            CapacitySlot.user_id == user.id
+        ).all()
+        
+        all_bindings = []
+        for slot in user_slots:
+            bindings = db.query(Binding).options(
+                joinedload(Binding.topic)
+            ).filter(Binding.slot_id == slot.id).all()
+            all_bindings.extend(bindings)
 
-        topic_count = len(slot.bindings)
+        # Unique topic count
+        topic_ids = set(b.topic_id for b in all_bindings)
+        topic_count = len(topic_ids)
 
         # Stage distribution
         stage_dist = {}
-        for binding in slot.bindings:
+        for binding in all_bindings:
             if binding.topic and binding.topic.current_stage:
                 stage_name = binding.topic.current_stage.name
                 stage_dist[stage_name] = stage_dist.get(stage_name, 0) + 1
 
         result.append(ExternalCollabData(
-            user_id=slot.user_id,
-            user_name=slot.user.name,
+            user_id=user.id,
+            user_name=user.name,
             topic_count=topic_count,
             stage_distribution=stage_dist
         ))

@@ -4,14 +4,14 @@
       <div class="flex items-center gap-4">
         <el-button text @click="goBack">
           <el-icon class="mr-1"><ArrowLeft /></el-icon>
-          Back
+          返回
         </el-button>
-        <h1 class="text-xl font-bold text-zinc-900">Edit: {{ page?.title }}</h1>
+        <h1 class="text-xl font-bold text-zinc-900">编辑: {{ page?.title }}</h1>
       </div>
       <div class="flex items-center gap-2">
-        <el-button @click="goBack">Cancel</el-button>
+        <el-button @click="goBack">取消</el-button>
         <el-button type="primary" :loading="saving" @click="saveRevision">
-          Save Revision
+          保存版本
         </el-button>
       </div>
     </div>
@@ -22,8 +22,10 @@
         <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden">
           <MdEditor
             v-model="content"
-            language="en-US"
+            language="zh-CN"
             style="height: 600px"
+            :on-upload-img="handleUploadImg"
+            :toolbars="toolbars"
           />
         </div>
       </div>
@@ -32,7 +34,7 @@
       <div class="col-span-4">
         <div class="bg-white rounded-xl border border-zinc-200 sticky top-20">
           <div class="p-4 border-b border-zinc-100">
-            <h2 class="font-semibold text-zinc-900">Revision History</h2>
+            <h2 class="font-semibold text-zinc-900">版本历史</h2>
           </div>
           <div class="p-4 space-y-3 max-h-[500px] overflow-y-auto">
             <div
@@ -45,9 +47,9 @@
               @click="loadRevision(revision)"
             >
               <div class="flex items-center justify-between mb-1">
-                <span class="font-medium text-sm">Version {{ revision.version }}</span>
+                <span class="font-medium text-sm">版本 {{ revision.version }}</span>
                 <el-tag v-if="revision.id === page.currentRevisionId" size="small" type="success">
-                  Current
+                  当前
                 </el-tag>
               </div>
               <p class="text-xs text-zinc-500">
@@ -55,7 +57,7 @@
               </p>
             </div>
             <div v-if="revisions.length === 0" class="text-center py-4 text-zinc-400 text-sm">
-              No revisions yet
+              暂无版本
             </div>
           </div>
         </div>
@@ -63,7 +65,7 @@
     </div>
 
     <p class="text-xs text-zinc-400 text-center">
-      Revisions are append-only. Each save creates a new revision and cannot be deleted.
+      版本只能追加，不能删除。每次保存会创建一个新版本。
     </p>
   </div>
 </template>
@@ -78,6 +80,7 @@ import { MdEditor } from 'md-editor-v3';
 import 'md-editor-v3/lib/style.css';
 import dayjs from 'dayjs';
 import type { WikiRevision } from '@/types';
+import { uploadApi } from '@/api/upload';
 
 const route = useRoute();
 const router = useRouter();
@@ -91,6 +94,31 @@ const loading = computed(() => wikiStore.loading);
 const content = ref('');
 const saving = ref(false);
 const selectedRevisionId = ref<number | null>(null);
+
+// Markdown 编辑器工具栏配置
+const toolbars = [
+  'bold', 'underline', 'italic', '-',
+  'title', 'strikeThrough', 'sub', 'sup', 'quote', 'unorderedList', 'orderedList', 'task', '-',
+  'codeRow', 'code', 'link', 'image', 'table', 'mermaid', 'katex', '-',
+  'revoke', 'next', 'save', '=',
+  'pageFullscreen', 'fullscreen', 'preview', 'htmlPreview', 'catalog'
+];
+
+// 处理图片上传
+async function handleUploadImg(files: File[], callback: (urls: string[]) => void) {
+  const urls: string[] = [];
+  
+  for (const file of files) {
+    try {
+      const result = await uploadApi.uploadImage(file, 'wiki');
+      urls.push(result.url);
+    } catch (error) {
+      ElMessage.error(`上传 ${file.name} 失败`);
+    }
+  }
+  
+  callback(urls);
+}
 
 function goBack() {
   if (page.value?.directionId) {
@@ -111,17 +139,17 @@ async function saveRevision() {
   saving.value = true;
   try {
     await wikiStore.createRevision(page.value.id, content.value);
-    ElMessage.success('Revision saved');
+    ElMessage.success('版本已保存');
     await wikiStore.fetchRevisions(page.value.id);
   } catch (error) {
-    ElMessage.error('Failed to save revision');
+    ElMessage.error('保存失败');
   } finally {
     saving.value = false;
   }
 }
 
 function formatDate(date: string) {
-  return dayjs(date).format('MMM D, YYYY h:mm A');
+  return dayjs(date).format('YYYY-MM-DD HH:mm');
 }
 
 onMounted(async () => {

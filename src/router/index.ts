@@ -79,6 +79,16 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/admin/AuditLogsView.vue'),
         meta: { requiresAdmin: true },
       },
+      {
+        path: 'profile/user/:userId',
+        name: 'user-profile',
+        component: () => import('@/views/profile/ProfileView.vue'),
+      },
+      {
+        path: 'profile/slot/:slotId',
+        name: 'slot-profile',
+        component: () => import('@/views/profile/ProfileView.vue'),
+      },
     ],
   },
   {

@@ -4,15 +4,17 @@ from sqlalchemy import func as sql_func
 from typing import Optional, List
 from math import ceil
 from datetime import datetime
+from pydantic import BaseModel
 from ..database import get_db
 from ..models.user import User, UserRole
-from ..models.topic import Topic, TopicStageState, StageStatus
+from ..models.topic import Topic, TopicStageState, StageStatus, TopicType
 from ..models.template import StageTemplate, StageTemplateStage
 from ..models.artifact import Artifact
 from ..models.review import ReviewComment
 from ..models.deliverable import StageDeliverable
 from ..models.capacity import Binding, CapacitySlot
 from ..models.audit import AuditAction
+from ..models.stage_instance import TopicStageInstance, StageInstanceStatus
 from ..schemas.topic import (
     TopicCreate, TopicUpdate, TopicResponse,
     ArtifactCreate, ArtifactResponse,
@@ -34,11 +36,62 @@ def get_topic_with_relations(db: Session, topic_id: int):
         joinedload(Topic.requester_user),
         joinedload(Topic.template).joinedload(StageTemplate.stages),
         joinedload(Topic.stage_states).joinedload(TopicStageState.stage),
+        joinedload(Topic.stage_instances),
         joinedload(Topic.artifacts).joinedload(Artifact.created_by),
         joinedload(Topic.reviews).joinedload(ReviewComment.created_by),
         joinedload(Topic.bindings).joinedload(Binding.slot).joinedload(CapacitySlot.user),
         joinedload(Topic.deliverables).joinedload(StageDeliverable.created_by)
     ).filter(Topic.id == topic_id).first()
+
+
+def user_can_view_all_topics(user: User) -> bool:
+    """
+    检查用户是否可以查看所有课题
+    ADMIN, MEMBER, REVIEWER 可以查看所有课题
+    CUSTOMER, EXTERNAL 只能查看关联的课题
+    """
+    return user.role in [UserRole.ADMIN, UserRole.MEMBER, UserRole.REVIEWER]
+
+
+def filter_topics_by_user_access(query, user: User, db: Session):
+    """
+    根据用户权限过滤课题
+    
+    CUSTOMER: 只能看到自己作为需求方的课题
+    EXTERNAL: 只能看到自己被分配到的课题（通过 Binding -> CapacitySlot -> user_id）
+    """
+    if user.role == UserRole.CUSTOMER:
+        # CUSTOMER 只能看到自己作为需求方的课题
+        query = query.filter(Topic.requester_user_id == user.id)
+    elif user.role == UserRole.EXTERNAL:
+        # EXTERNAL 只能看到自己被分配到的课题
+        # 通过 Binding -> CapacitySlot -> user_id 关联
+        subquery = db.query(Binding.topic_id).join(CapacitySlot).filter(
+            CapacitySlot.user_id == user.id
+        ).distinct()
+        query = query.filter(Topic.id.in_(subquery))
+    # ADMIN, MEMBER, REVIEWER 不需要过滤
+    return query
+
+
+def check_topic_access(topic: Topic, user: User, db: Session) -> bool:
+    """
+    检查用户是否有权限访问特定课题
+    """
+    if user_can_view_all_topics(user):
+        return True
+    
+    if user.role == UserRole.CUSTOMER:
+        return topic.requester_user_id == user.id
+    elif user.role == UserRole.EXTERNAL:
+        # 检查是否被分配到此课题
+        binding = db.query(Binding).join(CapacitySlot).filter(
+            Binding.topic_id == topic.id,
+            CapacitySlot.user_id == user.id
+        ).first()
+        return binding is not None
+    
+    return False
 
 
 @router.get("", response_model=PaginatedResponse[TopicResponse])
@@ -60,6 +113,9 @@ def list_topics(
         joinedload(Topic.bindings).joinedload(Binding.slot)
     )
 
+    # 根据用户角色过滤可见课题
+    query = filter_topics_by_user_access(query, current_user, db)
+
     if search:
         query = query.filter(
             (Topic.title.ilike(f"%{search}%")) |
@@ -73,7 +129,7 @@ def list_topics(
         query = query.filter(Topic.result == result)
     if dri_id:
         # Filter by DRI binding's slot user
-        query = query.join(Binding).join(CapacitySlot).filter(
+        query = query.join(Binding, isouter=True).join(CapacitySlot, isouter=True).filter(
             Binding.is_dri == True,
             CapacitySlot.user_id == dri_id
         )
@@ -99,6 +155,11 @@ def get_topic(
     topic = get_topic_with_relations(db, topic_id)
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
+    
+    # 检查访问权限
+    if not check_topic_access(topic, current_user, db):
+        raise HTTPException(status_code=403, detail="You don't have permission to view this topic")
+    
     return topic
 
 
@@ -141,6 +202,8 @@ def create_topic(
     topic = Topic(
         title=topic_data.title,
         description=topic_data.description,
+        background=topic_data.background,
+        user_goal=topic_data.user_goal,
         type=topic_data.type,
         urgency=topic_data.urgency,
         template_id=topic_data.template_id,
@@ -150,16 +213,47 @@ def create_topic(
     db.add(topic)
     db.flush()
 
-    # Create stage states and set first stage as active
-    for i, stage in enumerate(template.stages):
-        state = TopicStageState(
-            topic_id=topic.id,
-            stage_id=stage.id,
-            status=StageStatus.ACTIVE if i == 0 else StageStatus.PENDING
-        )
-        db.add(state)
-        if i == 0:
-            topic.current_stage_id = stage.id
+    # Create stage states and set first stage as active (旧逻辑，保留兼容)
+    # 只为演进课题创建旧的 stage states
+    if topic_data.type != TopicType.UNCERTAINTY:
+        for i, stage in enumerate(template.stages):
+            state = TopicStageState(
+                topic_id=topic.id,
+                stage_id=stage.id,
+                status=StageStatus.ACTIVE if i == 0 else StageStatus.PENDING
+            )
+            db.add(state)
+            if i == 0:
+                topic.current_stage_id = stage.id
+
+    # 新逻辑：创建 Stage Instances
+    # 不确定性课题：不自动创建阶段，让用户自己添加
+    # 演进课题：按模板创建阶段
+    first_instance = None
+    if topic_data.type != TopicType.UNCERTAINTY:
+        for i, stage in enumerate(template.stages):
+            instance = TopicStageInstance(
+                topic_id=topic.id,
+                name=stage.name,
+                description=stage.description,
+                order=float(i),
+                is_terminal=stage.is_terminal,
+                allow_result=stage.allow_result,
+                require_artifact=stage.require_artifact,
+                status=StageInstanceStatus.ACTIVE if i == 0 else StageInstanceStatus.PENDING,
+                template_stage_id=stage.id,
+                created_by_id=current_user.id
+            )
+            if i == 0:
+                instance.started_at = datetime.utcnow()
+                first_instance = instance
+            db.add(instance)
+    
+    db.flush()
+    
+    # Set current stage instance
+    if first_instance:
+        topic.current_stage_instance_id = first_instance.id
 
     # If initial DRI slot is provided, create the first binding as DRI
     if topic_data.initial_dri_slot_id:
@@ -226,6 +320,10 @@ def update_topic(
         topic.title = topic_data.title
     if topic_data.description is not None:
         topic.description = topic_data.description
+    if topic_data.background is not None:
+        topic.background = topic_data.background
+    if topic_data.user_goal is not None:
+        topic.user_goal = topic_data.user_goal
     if topic_data.urgency is not None:
         topic.urgency = topic_data.urgency
 
@@ -369,14 +467,35 @@ def change_dri(
     topic_id: int,
     request: ChangeDRIRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_user)
 ):
-    """Change the DRI of a topic to a different slot/person"""
+    """Change the DRI of a topic to a different slot/person
+    
+    Permission: Only ADMIN or current DRI can change DRI
+    """
     topic = db.query(Topic).options(
         joinedload(Topic.bindings).joinedload(Binding.slot).joinedload(CapacitySlot.user)
     ).filter(Topic.id == topic_id).first()
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
+
+    # Find current DRI
+    old_dri_binding = next((b for b in topic.bindings if b.is_dri), None)
+    old_dri_name = None
+    old_dri_user_id = None
+    if old_dri_binding and old_dri_binding.slot:
+        old_dri_name = old_dri_binding.slot.name
+        old_dri_user_id = old_dri_binding.slot.user_id
+
+    # Permission check: Only ADMIN or current DRI can change DRI
+    is_admin = current_user.role == UserRole.ADMIN
+    is_current_dri = old_dri_user_id and old_dri_user_id == current_user.id
+    
+    if not is_admin and not is_current_dri:
+        raise HTTPException(
+            status_code=403, 
+            detail="只有管理员或当前 DRI 本人可以更换负责人"
+        )
 
     # Validate new DRI slot exists
     new_slot = db.query(CapacitySlot).options(
@@ -384,12 +503,6 @@ def change_dri(
     ).filter(CapacitySlot.id == request.new_dri_slot_id).first()
     if not new_slot:
         raise HTTPException(status_code=400, detail="New DRI slot not found")
-
-    # Find old DRI
-    old_dri_binding = next((b for b in topic.bindings if b.is_dri), None)
-    old_dri_name = None
-    if old_dri_binding and old_dri_binding.slot:
-        old_dri_name = old_dri_binding.slot.name
 
     # Check if new slot already has a binding
     existing_binding = next((b for b in topic.bindings if b.slot_id == request.new_dri_slot_id), None)
@@ -417,10 +530,15 @@ def change_dri(
         topic.dri_id = new_slot.user_id
 
     db.commit()
+    db.refresh(topic)
 
-    AuditService.log(db, AuditAction.DRI_CHANGE, "Topic", topic.id, current_user,
-                     old_value={"dri_slot": old_dri_name},
-                     new_value={"dri_slot": new_slot.name})
+    try:
+        AuditService.log(db, AuditAction.DRI_CHANGE, "Topic", topic.id, current_user,
+                         old_value={"dri_slot": old_dri_name},
+                         new_value={"dri_slot": new_slot.name})
+    except Exception as e:
+        # Audit log failure should not fail the main operation
+        print(f"Audit log failed: {e}")
 
     return get_topic_with_relations(db, topic.id)
 
@@ -637,3 +755,215 @@ def delete_deliverable(
     db.commit()
 
     return {"message": "Deliverable deleted"}
+
+
+# ============ Topic-level Tech Points (算法思想) ============
+
+class TopicTechPointCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    hypothesis: Optional[str] = None
+    first_author_id: int
+
+class TopicTechPointUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    hypothesis: Optional[str] = None
+    approach: Optional[str] = None
+    conclusion: Optional[str] = None
+    status: Optional[str] = None
+
+
+@router.get("/{topic_id}/members")
+def get_topic_members(
+    topic_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取课题关联的所有人员（用于选择提出人）"""
+    topic = db.query(Topic).options(
+        joinedload(Topic.bindings).joinedload(Binding.slot).joinedload(CapacitySlot.user)
+    ).filter(Topic.id == topic_id).first()
+    
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    
+    members = []
+    for binding in topic.bindings:
+        if binding.slot:
+            user = binding.slot.user
+            member = {
+                "slotId": binding.slot.id,
+                "slotName": binding.slot.name,
+                "slotType": binding.slot.type.value if binding.slot.type else None,
+                "userId": user.id if user else None,
+                "userName": binding.slot.name,  # 使用 Slot 名字（如 Alice Chen）
+                "userRole": user.role.value if user else None,
+                "isDri": binding.is_dri,
+            }
+            members.append(member)
+    
+    return members
+
+
+@router.get("/{topic_id}/tech-points")
+def list_topic_tech_points(
+    topic_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取课题级别的技术点/算法思想列表"""
+    from ..models.stage_instance import TechPoint
+    
+    topic = db.query(Topic).filter(Topic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    
+    tech_points = db.query(TechPoint).options(
+        joinedload(TechPoint.first_author)
+    ).filter(TechPoint.topic_id == topic_id).order_by(TechPoint.created_at.desc()).all()
+    
+    return [{
+        "id": tp.id,
+        "name": tp.name,
+        "description": tp.description,
+        "hypothesis": tp.hypothesis,
+        "approach": tp.approach,
+        "conclusion": tp.conclusion,
+        "status": tp.status,
+        "firstAuthorId": tp.first_author_id,
+        "firstAuthorName": tp.first_author.name if tp.first_author else None,
+        "createdAt": tp.created_at.isoformat() if tp.created_at else None,
+    } for tp in tech_points]
+
+
+@router.post("/{topic_id}/tech-points")
+def create_topic_tech_point(
+    topic_id: int,
+    data: TopicTechPointCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """创建课题级别的技术点/算法思想"""
+    from ..models.stage_instance import TechPoint
+    
+    if current_user.role == UserRole.CUSTOMER:
+        raise HTTPException(status_code=403, detail="CUSTOMER users cannot create tech points")
+    
+    topic = db.query(Topic).filter(Topic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    
+    # 验证提出人存在
+    author = db.query(User).filter(User.id == data.first_author_id).first()
+    if not author:
+        raise HTTPException(status_code=400, detail="First author not found")
+    
+    # 获取最大 order
+    max_order = db.query(sql_func.max(TechPoint.order)).filter(
+        TechPoint.topic_id == topic_id
+    ).scalar() or 0
+    
+    tech_point = TechPoint(
+        topic_id=topic_id,
+        name=data.name,
+        description=data.description,
+        hypothesis=data.hypothesis,
+        first_author_id=data.first_author_id,
+        order=max_order + 1,
+    )
+    db.add(tech_point)
+    db.commit()
+    db.refresh(tech_point)
+    
+    return {
+        "id": tech_point.id,
+        "name": tech_point.name,
+        "description": tech_point.description,
+        "hypothesis": tech_point.hypothesis,
+        "approach": tech_point.approach,
+        "conclusion": tech_point.conclusion,
+        "status": tech_point.status,
+        "firstAuthorId": tech_point.first_author_id,
+        "firstAuthorName": author.name,
+        "createdAt": tech_point.created_at.isoformat() if tech_point.created_at else None,
+    }
+
+
+@router.put("/{topic_id}/tech-points/{point_id}")
+def update_topic_tech_point(
+    topic_id: int,
+    point_id: int,
+    data: TopicTechPointUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """更新课题级别的技术点/算法思想"""
+    from ..models.stage_instance import TechPoint
+    
+    if current_user.role == UserRole.CUSTOMER:
+        raise HTTPException(status_code=403, detail="CUSTOMER users cannot update tech points")
+    
+    tech_point = db.query(TechPoint).filter(
+        TechPoint.id == point_id,
+        TechPoint.topic_id == topic_id
+    ).first()
+    
+    if not tech_point:
+        raise HTTPException(status_code=404, detail="Tech point not found")
+    
+    if data.name is not None:
+        tech_point.name = data.name
+    if data.description is not None:
+        tech_point.description = data.description
+    if data.hypothesis is not None:
+        tech_point.hypothesis = data.hypothesis
+    if data.approach is not None:
+        tech_point.approach = data.approach
+    if data.conclusion is not None:
+        tech_point.conclusion = data.conclusion
+    if data.status is not None:
+        tech_point.status = data.status
+    
+    db.commit()
+    db.refresh(tech_point)
+    
+    return {
+        "id": tech_point.id,
+        "name": tech_point.name,
+        "description": tech_point.description,
+        "hypothesis": tech_point.hypothesis,
+        "approach": tech_point.approach,
+        "conclusion": tech_point.conclusion,
+        "status": tech_point.status,
+        "firstAuthorId": tech_point.first_author_id,
+        "firstAuthorName": tech_point.first_author.name if tech_point.first_author else None,
+        "createdAt": tech_point.created_at.isoformat() if tech_point.created_at else None,
+    }
+
+
+@router.delete("/{topic_id}/tech-points/{point_id}")
+def delete_topic_tech_point(
+    topic_id: int,
+    point_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """删除课题级别的技术点/算法思想"""
+    from ..models.stage_instance import TechPoint
+    
+    if current_user.role == UserRole.CUSTOMER:
+        raise HTTPException(status_code=403, detail="CUSTOMER users cannot delete tech points")
+    
+    tech_point = db.query(TechPoint).filter(
+        TechPoint.id == point_id,
+        TechPoint.topic_id == topic_id
+    ).first()
+    
+    if not tech_point:
+        raise HTTPException(status_code=404, detail="Tech point not found")
+    
+    db.delete(tech_point)
+    db.commit()
+    
+    return {"message": "Tech point deleted"}

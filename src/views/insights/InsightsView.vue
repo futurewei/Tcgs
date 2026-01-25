@@ -1,234 +1,205 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-zinc-900">Insights / History</h1>
+  <div class="insights-page">
+    <div class="page-header">
+      <h1 class="page-title">洞察 / 历史</h1>
       <el-date-picker
         v-model="dateRange"
         type="monthrange"
-        range-separator="to"
-        start-placeholder="Start month"
-        end-placeholder="End month"
+        range-separator="至"
+        start-placeholder="开始月份"
+        end-placeholder="结束月份"
         format="YYYY-MM"
         value-format="YYYY-MM"
       />
     </div>
 
     <!-- KPI Overview -->
-    <div class="grid grid-cols-5 gap-4">
-      <div class="bg-white rounded-xl border border-zinc-200 p-5">
-        <p class="text-sm text-zinc-500 mb-1">Total Topics</p>
-        <p class="text-3xl font-bold text-zinc-900">{{ kpi.totalTopics }}</p>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <p class="kpi-label">总课题</p>
+        <p class="kpi-value">{{ kpi.totalTopics }}</p>
       </div>
-      <div class="bg-white rounded-xl border border-zinc-200 p-5">
-        <p class="text-sm text-zinc-500 mb-1">Open</p>
-        <p class="text-3xl font-bold text-amber-600">{{ kpi.openTopics }}</p>
+      <div class="kpi-card">
+        <p class="kpi-label">进行中</p>
+        <p class="kpi-value warning">{{ kpi.openTopics }}</p>
       </div>
-      <div class="bg-white rounded-xl border border-zinc-200 p-5">
-        <p class="text-sm text-zinc-500 mb-1">Success</p>
-        <p class="text-3xl font-bold text-emerald-600">{{ kpi.successTopics }}</p>
+      <div class="kpi-card">
+        <p class="kpi-label">已完成</p>
+        <p class="kpi-value success">{{ kpi.successTopics }}</p>
       </div>
-      <div class="bg-white rounded-xl border border-zinc-200 p-5">
-        <p class="text-sm text-zinc-500 mb-1">Unsolvable</p>
-        <p class="text-3xl font-bold text-rose-600">{{ kpi.unsolvableTopics }}</p>
+      <div class="kpi-card">
+        <p class="kpi-label">无法解决</p>
+        <p class="kpi-value danger">{{ kpi.unsolvableTopics }}</p>
       </div>
-      <div class="bg-white rounded-xl border border-zinc-200 p-5">
-        <p class="text-sm text-zinc-500 mb-1">Avg. Cycle (days)</p>
-        <p class="text-3xl font-bold text-zinc-900">{{ kpi.avgCycleDays.toFixed(1) }}</p>
+      <div class="kpi-card">
+        <p class="kpi-label">平均周期（天）</p>
+        <p class="kpi-value">{{ kpi.avgCycleDays.toFixed(1) }}</p>
       </div>
     </div>
 
     <!-- Throughput Trends -->
-    <div class="bg-white rounded-xl border border-zinc-200 p-6">
-      <h2 class="font-semibold text-zinc-900 mb-4">Throughput Trends</h2>
-      <div class="h-[300px]">
-        <div class="flex items-end justify-between h-full gap-2">
+    <section class="tcgs-surface chart-section">
+      <h2 class="section-title">吞吐量趋势</h2>
+      <div class="throughput-chart">
+        <div class="chart-bars">
           <div
             v-for="(data, index) in throughputData"
             :key="index"
-            class="flex-1 flex flex-col items-center gap-1"
+            class="bar-group"
           >
-            <div class="w-full flex flex-col gap-1">
+            <div class="bars-stack">
               <div
-                class="w-full bg-emerald-500 rounded-t"
-                :style="{ height: `${(data.closedTopics / maxThroughput) * 200}px` }"
-                :title="`Closed: ${data.closedTopics}`"
+                class="bar bar-closed"
+                :style="{ height: `${(data.closedTopics / maxThroughput) * 180}px` }"
+                :title="`已关闭: ${data.closedTopics}`"
               />
               <div
-                class="w-full bg-zinc-300 rounded-b"
-                :style="{ height: `${(data.newTopics / maxThroughput) * 200}px` }"
-                :title="`New: ${data.newTopics}`"
+                class="bar bar-new"
+                :style="{ height: `${(data.newTopics / maxThroughput) * 180}px` }"
+                :title="`新建: ${data.newTopics}`"
               />
             </div>
-            <span class="text-xs text-zinc-500 mt-2">{{ formatMonth(data.month) }}</span>
+            <span class="bar-label">{{ formatMonth(data.month) }}</span>
           </div>
         </div>
       </div>
-      <div class="flex items-center justify-center gap-6 mt-4">
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 bg-zinc-300 rounded" />
-          <span class="text-sm text-zinc-600">New Topics</span>
+      <div class="chart-legend">
+        <div class="legend-item">
+          <span class="legend-dot new"></span>
+          <span class="legend-text">新建课题</span>
         </div>
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 bg-emerald-500 rounded" />
-          <span class="text-sm text-zinc-600">Closed Topics</span>
+        <div class="legend-item">
+          <span class="legend-dot closed"></span>
+          <span class="legend-text">关闭课题</span>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Type Distribution -->
-    <div class="grid grid-cols-2 gap-6">
-      <div class="bg-white rounded-xl border border-zinc-200 p-6">
-        <h2 class="font-semibold text-zinc-900 mb-4">Topic Type Distribution</h2>
-        <div class="flex items-center gap-8">
-          <div class="w-32 h-32 relative">
-            <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+    <!-- Type Distribution & Completion Rate -->
+    <div class="stats-grid">
+      <section class="tcgs-surface">
+        <h2 class="section-title">课题类型分布</h2>
+        <div class="distribution-content">
+          <div class="donut-chart">
+            <svg class="donut-svg" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="40" fill="none" stroke="var(--color-neutral-200)" stroke-width="20" />
               <circle
-                cx="50"
-                cy="50"
-                r="40"
-                fill="none"
-                stroke="#e4e4e7"
-                stroke-width="20"
-              />
-              <circle
-                cx="50"
-                cy="50"
-                r="40"
-                fill="none"
-                stroke="#f59e0b"
+                cx="50" cy="50" r="40" fill="none"
+                stroke="var(--color-warning)"
                 stroke-width="20"
                 :stroke-dasharray="`${uncertaintyPercent * 2.51} 251`"
+                class="donut-segment"
               />
             </svg>
-            <div class="absolute inset-0 flex items-center justify-center">
-              <span class="text-lg font-bold">{{ kpi.totalTopics }}</span>
+            <div class="donut-center">
+              <span class="donut-value">{{ kpi.totalTopics }}</span>
             </div>
           </div>
-          <div class="space-y-3">
-            <div class="flex items-center gap-3">
-              <div class="w-3 h-3 bg-amber-500 rounded" />
-              <span class="text-sm">Uncertainty: {{ kpi.uncertaintyCount }} ({{ uncertaintyPercent.toFixed(0) }}%)</span>
+          <div class="distribution-legend">
+            <div class="legend-row">
+              <span class="legend-dot uncertainty"></span>
+              <span class="legend-text">不确定性: {{ kpi.uncertaintyCount }} ({{ uncertaintyPercent.toFixed(0) }}%)</span>
             </div>
-            <div class="flex items-center gap-3">
-              <div class="w-3 h-3 bg-zinc-300 rounded" />
-              <span class="text-sm">Evolution: {{ kpi.evolutionCount }} ({{ evolutionPercent.toFixed(0) }}%)</span>
+            <div class="legend-row">
+              <span class="legend-dot evolution"></span>
+              <span class="legend-text">演进: {{ kpi.evolutionCount }} ({{ evolutionPercent.toFixed(0) }}%)</span>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="bg-white rounded-xl border border-zinc-200 p-6">
-        <h2 class="font-semibold text-zinc-900 mb-4">Completion Rate</h2>
-        <div class="space-y-4">
-          <div>
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-sm text-zinc-600">Success Rate</span>
-              <span class="font-medium">{{ successRate.toFixed(1) }}%</span>
+      <section class="tcgs-surface">
+        <h2 class="section-title">完成率</h2>
+        <div class="completion-rates">
+          <div class="rate-item">
+            <div class="rate-header">
+              <span class="rate-label">成功率</span>
+              <span class="rate-value">{{ successRate.toFixed(1) }}%</span>
             </div>
             <el-progress :percentage="successRate" :show-text="false" status="success" />
           </div>
-          <div>
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-sm text-zinc-600">Unsolvable Rate</span>
-              <span class="font-medium">{{ unsolvableRate.toFixed(1) }}%</span>
+          <div class="rate-item">
+            <div class="rate-header">
+              <span class="rate-label">无法解决率</span>
+              <span class="rate-value">{{ unsolvableRate.toFixed(1) }}%</span>
             </div>
             <el-progress :percentage="unsolvableRate" :show-text="false" status="exception" />
           </div>
-          <div>
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-sm text-zinc-600">Still Open</span>
-              <span class="font-medium">{{ openRate.toFixed(1) }}%</span>
+          <div class="rate-item">
+            <div class="rate-header">
+              <span class="rate-label">仍在进行</span>
+              <span class="rate-value">{{ openRate.toFixed(1) }}%</span>
             </div>
             <el-progress :percentage="openRate" :show-text="false" status="warning" />
           </div>
         </div>
-      </div>
+      </section>
     </div>
 
-    <!-- Person Load (Algo Team) -->
-    <div class="bg-white rounded-xl border border-zinc-200 p-6">
-      <h2 class="font-semibold text-zinc-900 mb-4">Algo Team Load</h2>
-      <el-table :data="personLoadData" v-loading="loading">
-        <el-table-column prop="userName" label="Person" min-width="150" />
-        <el-table-column label="DRI Topics" width="120">
+    <!-- Person Load -->
+    <section class="tcgs-surface">
+      <h2 class="section-title">团队负载</h2>
+      <el-table :data="personLoadData" v-loading="loading" class="insights-table">
+        <el-table-column prop="userName" label="成员" min-width="150" />
+        <el-table-column label="DRI 课题" width="120">
           <template #default="{ row }">
-            <span class="font-medium">{{ row.driTopics }}</span>
+            <span class="table-value primary">{{ row.driTopics }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Collaboration" width="120">
+        <el-table-column label="协作课题" width="120">
           <template #default="{ row }">
-            <span>{{ row.collaborationTopics }}</span>
+            <span class="table-value">{{ row.collaborationTopics }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Load %" width="200">
+        <el-table-column label="负载" width="200">
           <template #default="{ row }">
-            <div class="flex items-center gap-2">
+            <div class="load-cell">
               <el-progress
                 :percentage="Math.min(row.totalPercentage, 100)"
                 :status="row.totalPercentage > 100 ? 'exception' : row.totalPercentage > 80 ? 'warning' : 'success'"
                 :show-text="false"
-                class="flex-1"
+                class="load-progress"
               />
-              <span class="text-sm font-medium w-12 text-right">{{ row.totalPercentage }}%</span>
+              <span class="load-value">{{ row.totalPercentage }}%</span>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="DRI vs Collab" width="150">
+        <el-table-column label="DRI/协作比" width="150">
           <template #default="{ row }">
-            <div class="flex h-4 rounded overflow-hidden">
-              <div
-                class="bg-zinc-700"
-                :style="{ width: `${(row.driTopics / (row.driTopics + row.collaborationTopics)) * 100}%` }"
-              />
-              <div
-                class="bg-zinc-300"
-                :style="{ width: `${(row.collaborationTopics / (row.driTopics + row.collaborationTopics)) * 100}%` }"
-              />
+            <div class="ratio-bar">
+              <div class="ratio-dri" :style="{ width: `${(row.driTopics / (row.driTopics + row.collaborationTopics)) * 100}%` }" />
+              <div class="ratio-collab" :style="{ width: `${(row.collaborationTopics / (row.driTopics + row.collaborationTopics)) * 100}%` }" />
             </div>
           </template>
         </el-table-column>
       </el-table>
-    </div>
+    </section>
 
     <!-- External Collaboration -->
-    <div class="bg-white rounded-xl border border-zinc-200 p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="font-semibold text-zinc-900">External Collaboration</h2>
-      <!-- 可选：如果你还想保留一个说明 -->
-	<!-- <el-tag type="success" size="small">External can be DRI</el-tag> -->
-      </div>
-      <el-table :data="externalCollabData" v-loading="loading">
-        <el-table-column prop="userName" label="External Collaborator" min-width="150" />
-        <el-table-column label="Topics Involved" width="150">
+    <section class="tcgs-surface">
+      <h2 class="section-title">外部协作</h2>
+      <el-table :data="externalCollabData" v-loading="loading" class="insights-table">
+        <el-table-column prop="userName" label="外部协作方" min-width="150" />
+        <el-table-column label="参与课题" width="150">
           <template #default="{ row }">
-            <span class="font-medium">{{ row.topicCount }}</span>
+            <span class="table-value primary">{{ row.topicCount }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Stage Distribution" min-width="300">
+        <el-table-column label="阶段分布" min-width="300">
           <template #default="{ row }">
-            <div class="flex gap-1">
-              <el-tooltip
-                v-for="(count, stage) in row.stageDistribution"
-                :key="stage"
-                :content="`${stage}: ${count}`"
-              >
-                <div
-                  class="h-6 bg-zinc-200 rounded flex items-center justify-center text-xs"
-                  :style="{ width: `${Math.max(count * 20, 30)}px` }"
-                >
-                  {{ count }}
-                </div>
+            <div class="stage-distribution">
+              <el-tooltip v-for="(count, stage) in row.stageDistribution" :key="stage" :content="`${stage}: ${count}`">
+                <div class="stage-chip" :style="{ width: `${Math.max(count * 24, 36)}px` }">{{ count }}</div>
               </el-tooltip>
             </div>
           </template>
         </el-table-column>
       </el-table>
-      <p v-if="externalCollabData.length === 0" class="text-center py-8 text-zinc-400">
-        No external collaboration data
-      </p>
-    </div>
+      <p v-if="externalCollabData.length === 0" class="empty-state">暂无外部协作数据</p>
+    </section>
   </div>
 </template>
+
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
@@ -254,34 +225,18 @@ const personLoadData = ref<PersonLoadData[]>([]);
 const externalCollabData = ref<ExternalCollabData[]>([]);
 
 const maxThroughput = computed(() => {
-  const max = Math.max(
-    ...throughputData.value.map(d => Math.max(d.newTopics, d.closedTopics))
-  );
+  const max = Math.max(...throughputData.value.map(d => Math.max(d.newTopics, d.closedTopics)));
   return max || 1;
 });
 
-const uncertaintyPercent = computed(() =>
-  kpi.totalTopics ? (kpi.uncertaintyCount / kpi.totalTopics) * 100 : 0
-);
-
-const evolutionPercent = computed(() =>
-  kpi.totalTopics ? (kpi.evolutionCount / kpi.totalTopics) * 100 : 0
-);
-
-const successRate = computed(() =>
-  kpi.totalTopics ? (kpi.successTopics / kpi.totalTopics) * 100 : 0
-);
-
-const unsolvableRate = computed(() =>
-  kpi.totalTopics ? (kpi.unsolvableTopics / kpi.totalTopics) * 100 : 0
-);
-
-const openRate = computed(() =>
-  kpi.totalTopics ? (kpi.openTopics / kpi.totalTopics) * 100 : 0
-);
+const uncertaintyPercent = computed(() => kpi.totalTopics ? (kpi.uncertaintyCount / kpi.totalTopics) * 100 : 0);
+const evolutionPercent = computed(() => kpi.totalTopics ? (kpi.evolutionCount / kpi.totalTopics) * 100 : 0);
+const successRate = computed(() => kpi.totalTopics ? (kpi.successTopics / kpi.totalTopics) * 100 : 0);
+const unsolvableRate = computed(() => kpi.totalTopics ? (kpi.unsolvableTopics / kpi.totalTopics) * 100 : 0);
+const openRate = computed(() => kpi.totalTopics ? (kpi.openTopics / kpi.totalTopics) * 100 : 0);
 
 function formatMonth(month: string) {
-  return dayjs(month).format('MMM');
+  return dayjs(month).format('M月');
 }
 
 async function fetchData() {
@@ -293,24 +248,17 @@ async function fetchData() {
       insightsApi.getPersonLoad(),
       insightsApi.getExternalCollab(),
     ]);
-
     Object.assign(kpi, kpiData);
     throughputData.value = throughput;
     personLoadData.value = personLoad;
     externalCollabData.value = externalCollab;
   } catch (error) {
     console.error('Failed to fetch insights:', error);
-    // Use mock data for demo
+    // Mock data for demo
     Object.assign(kpi, {
-      totalTopics: 47,
-      openTopics: 18,
-      successTopics: 24,
-      unsolvableTopics: 5,
-      avgCycleDays: 23.5,
-      uncertaintyCount: 28,
-      evolutionCount: 19,
+      totalTopics: 47, openTopics: 18, successTopics: 24, unsolvableTopics: 5,
+      avgCycleDays: 23.5, uncertaintyCount: 28, evolutionCount: 19,
     });
-
     throughputData.value = Array.from({ length: 12 }, (_, i) => ({
       month: dayjs().subtract(11 - i, 'month').format('YYYY-MM'),
       newTopics: Math.floor(Math.random() * 10) + 2,
@@ -318,24 +266,319 @@ async function fetchData() {
       uncertainty: Math.floor(Math.random() * 6) + 1,
       evolution: Math.floor(Math.random() * 5) + 1,
     }));
-
     personLoadData.value = [
-      { userId: 1, userName: 'Alice Chen', driTopics: 5, collaborationTopics: 3, totalPercentage: 85 },
-      { userId: 2, userName: 'Bob Wang', driTopics: 4, collaborationTopics: 4, totalPercentage: 95 },
-      { userId: 3, userName: 'Charlie Liu', driTopics: 3, collaborationTopics: 2, totalPercentage: 60 },
-      { userId: 4, userName: 'Diana Zhang', driTopics: 6, collaborationTopics: 1, totalPercentage: 110 },
+      { userId: 1, userName: '陈工', driTopics: 5, collaborationTopics: 3, totalPercentage: 85 },
+      { userId: 2, userName: '王工', driTopics: 4, collaborationTopics: 4, totalPercentage: 95 },
+      { userId: 3, userName: '刘工', driTopics: 3, collaborationTopics: 2, totalPercentage: 60 },
+      { userId: 4, userName: '张工', driTopics: 6, collaborationTopics: 1, totalPercentage: 110 },
     ];
-
     externalCollabData.value = [
-      { userId: 10, userName: 'External Vendor A', topicCount: 4, stageDistribution: { 'Analysis': 2, 'Review': 1, 'Testing': 1 } },
-      { userId: 11, userName: 'Partner Team B', topicCount: 2, stageDistribution: { 'Definition': 1, 'Analysis': 1 } },
+      { userId: 10, userName: '外部供应商A', topicCount: 4, stageDistribution: { '分析': 2, '评审': 1, '测试': 1 } },
+      { userId: 11, userName: '合作团队B', topicCount: 2, stageDistribution: { '定义': 1, '分析': 1 } },
     ];
   } finally {
     loading.value = false;
   }
 }
 
-onMounted(() => {
-  fetchData();
-});
+onMounted(() => fetchData());
 </script>
+
+
+<style scoped>
+.insights-page {
+  padding: var(--space-6);
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+}
+
+/* KPI Grid */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-4);
+}
+
+@media (max-width: 1024px) {
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 640px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.kpi-card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.kpi-label {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  margin: 0 0 var(--space-1) 0;
+}
+
+.kpi-value {
+  font-size: 28px;
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+.kpi-value.warning { color: var(--color-warning); }
+.kpi-value.success { color: var(--color-success); }
+.kpi-value.danger { color: var(--color-danger); }
+
+/* Section */
+.section-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-4) 0;
+}
+
+/* Throughput Chart */
+.chart-section {
+  padding: var(--space-5);
+}
+
+.throughput-chart {
+  height: 220px;
+  margin-bottom: var(--space-4);
+}
+
+.chart-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 100%;
+  gap: var(--space-2);
+}
+
+.bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.bars-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: var(--radius-xs);
+  transition: var(--transition-fast);
+}
+
+.bar-closed { background: var(--color-success); }
+.bar-new { background: var(--color-neutral-300); }
+
+.bar-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.chart-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-xs);
+}
+.legend-dot.new { background: var(--color-neutral-300); }
+.legend-dot.closed { background: var(--color-success); }
+.legend-dot.uncertainty { background: var(--color-warning); }
+.legend-dot.evolution { background: var(--color-neutral-300); }
+
+.legend-text {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-6);
+}
+
+@media (max-width: 768px) {
+  .stats-grid { grid-template-columns: 1fr; }
+}
+
+/* Donut Chart */
+.distribution-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.donut-chart {
+  width: 120px;
+  height: 120px;
+  position: relative;
+}
+
+.donut-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.donut-segment {
+  transition: stroke-dasharray 0.3s ease;
+}
+
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.donut-value {
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+}
+
+.distribution-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Completion Rates */
+.completion-rates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rate-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rate-label {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.rate-value {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+}
+
+/* Table Styles */
+.insights-table {
+  margin-top: var(--space-4);
+}
+
+.table-value {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+.table-value.primary {
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+}
+
+.load-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.load-progress {
+  flex: 1;
+}
+
+.load-value {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  width: 48px;
+  text-align: right;
+}
+
+.ratio-bar {
+  display: flex;
+  height: 16px;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+}
+
+.ratio-dri { background: var(--color-primary); }
+.ratio-collab { background: var(--color-neutral-300); }
+
+.stage-distribution {
+  display: flex;
+  gap: 4px;
+}
+
+.stage-chip {
+  height: 24px;
+  background: var(--color-neutral-100);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--color-text-disabled);
+  font-size: var(--text-sm);
+}
+</style>

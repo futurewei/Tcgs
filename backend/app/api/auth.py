@@ -1,6 +1,8 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from ..database import get_db
 from ..config import get_settings
 from ..models.user import User
@@ -10,10 +12,14 @@ from ..services.auth import AuthService, get_current_user
 router = APIRouter()
 settings = get_settings()
 
+# 创建速率限制器
+limiter = Limiter(key_func=get_remote_address)
+
 
 @router.post("/login", response_model=TokenResponse)
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    user = AuthService.authenticate_user(db, request.email, request.password)
+@limiter.limit(settings.LOGIN_RATE_LIMIT)  # 默认: 每分钟最多5次登录尝试
+def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_db)):
+    user = AuthService.authenticate_user(db, login_data.email, login_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

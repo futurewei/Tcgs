@@ -39,9 +39,10 @@ export const useCapacityStore = defineStore('capacity', () => {
         slots.value = filtered;
         return;
       }
-      slots.value = await capacityApi.listSlots(type);
+      // 使用新的 workforce API（基于 User）
+      slots.value = await capacityApi.listWorkforce(type);
     } catch (error) {
-      console.error('Failed to fetch slots:', error);
+      console.error('Failed to fetch workforce:', error);
       throw error;
     } finally {
       loading.value = false;
@@ -129,6 +130,48 @@ export const useCapacityStore = defineStore('capacity', () => {
     }
   }
 
+  // ============ Slot CRUD ============
+  async function createSlot(data: SlotCreateRequest) {
+    loading.value = true;
+    try {
+      const slot = await capacityApi.createSlot(data);
+      await fetchSlots(lastType.value);
+      return slot;
+    } catch (error) {
+      console.error('Failed to create slot:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function updateSlot(id: number, data: Partial<SlotCreateRequest>) {
+    loading.value = true;
+    try {
+      const slot = await capacityApi.updateSlot(id, data);
+      await fetchSlots(lastType.value);
+      return slot;
+    } catch (error) {
+      console.error('Failed to update slot:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function deleteSlot(id: number) {
+    loading.value = true;
+    try {
+      await capacityApi.deleteSlot(id);
+      await fetchSlots(lastType.value);
+    } catch (error) {
+      console.error('Failed to delete slot:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     slots,
     bindings,
@@ -139,6 +182,9 @@ export const useCapacityStore = defineStore('capacity', () => {
     getSlotUsage,
     fetchSlots,
     fetchBindings,
+    createSlot,
+    updateSlot,
+    deleteSlot,
     createBinding,
     updateBinding,
     deleteBinding,

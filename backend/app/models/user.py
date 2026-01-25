@@ -18,10 +18,11 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    name = Column(String, nullable=False)
+    name = Column(String, nullable=False)  # 真实姓名
     hashed_password = Column(String, nullable=False)
     avatar = Column(String, nullable=True)
     role = Column(Enum(UserRole), default=UserRole.MEMBER, nullable=False)
+    total_capacity = Column(Integer, default=100)  # 可分配的工时百分比
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -32,3 +33,4 @@ class User(Base):
     wiki_revisions = relationship("WikiRevision", back_populates="created_by")
     audit_logs = relationship("AuditLog", back_populates="user")
     created_deliverables = relationship("StageDeliverable", back_populates="created_by")
+    bindings = relationship("Binding", back_populates="user", foreign_keys="Binding.user_id")

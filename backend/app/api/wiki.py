@@ -1,31 +1,67 @@
+"""
+Wiki API - 知识库
+支持：图片、浏览量、评论、点赞
+"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
-from typing import List
+from sqlalchemy import func as sql_func
+from typing import List, Optional
 from ..database import get_db
 from ..models.user import User
-from ..models.wiki import WikiDirection, WikiPage, WikiRevision
+from ..models.wiki import WikiDirection, WikiPage, WikiRevision, WikiComment, WikiLike
 from ..models.audit import AuditAction
 from ..schemas.wiki import (
     WikiDirectionCreate, WikiDirectionUpdate, WikiDirectionResponse,
     WikiPageCreate, WikiPageUpdate, WikiPageResponse,
-    WikiRevisionCreate, WikiRevisionResponse
+    WikiRevisionCreate, WikiRevisionResponse,
+    WikiCommentCreate, WikiCommentResponse
 )
 from ..services.auth import get_current_user, get_current_admin
 from ..services.audit import AuditService
+from pydantic import BaseModel
 
 router = APIRouter()
 
 
-# Directions
+# ============ Directions ============
+
 @router.get("/directions", response_model=List[WikiDirectionResponse])
 def list_directions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     directions = db.query(WikiDirection).options(
-        joinedload(WikiDirection.pages)
+        joinedload(WikiDirection.pages).joinedload(WikiPage.likes)
     ).order_by(WikiDirection.name).all()
-    return directions
+    
+    result = []
+    for direction in directions:
+        pages_data = []
+        for page in direction.pages:
+            pages_data.append({
+                "id": page.id,
+                "title": page.title,
+                "direction_id": page.direction_id,
+                "parent_id": page.parent_id,
+                "current_revision_id": page.current_revision_id,
+                "view_count": page.view_count or 0,
+                "like_count": len(page.likes) if page.likes else 0,
+                "user_liked": False,
+                "comments": [],
+                "created_at": page.created_at,
+                "updated_at": page.updated_at,
+                "current_revision": None
+            })
+        result.append({
+            "id": direction.id,
+            "name": direction.name,
+            "description": direction.description,
+            "icon": direction.icon,
+            "pages": pages_data,
+            "created_at": direction.created_at,
+            "updated_at": direction.updated_at
+        })
+    return result
 
 
 @router.get("/directions/{direction_id}", response_model=WikiDirectionResponse)
@@ -35,20 +71,47 @@ def get_direction(
     current_user: User = Depends(get_current_user)
 ):
     direction = db.query(WikiDirection).options(
+        joinedload(WikiDirection.pages).joinedload(WikiPage.likes),
         joinedload(WikiDirection.pages).joinedload(WikiPage.revisions)
     ).filter(WikiDirection.id == direction_id).first()
 
     if not direction:
         raise HTTPException(status_code=404, detail="Direction not found")
 
-    # Load current revision for each page
+    # 构建响应，包含 like_count
+    pages_data = []
     for page in direction.pages:
+        page_dict = {
+            "id": page.id,
+            "title": page.title,
+            "direction_id": page.direction_id,
+            "parent_id": page.parent_id,
+            "current_revision_id": page.current_revision_id,
+            "view_count": page.view_count or 0,
+            "like_count": len(page.likes) if page.likes else 0,
+            "user_liked": False,
+            "comments": [],
+            "created_at": page.created_at,
+            "updated_at": page.updated_at,
+            "current_revision": None
+        }
         if page.current_revision_id:
-            page.current_revision = db.query(WikiRevision).options(
+            rev = db.query(WikiRevision).options(
                 joinedload(WikiRevision.created_by)
             ).filter(WikiRevision.id == page.current_revision_id).first()
+            if rev:
+                page_dict["current_revision"] = rev
+        pages_data.append(page_dict)
 
-    return direction
+    return {
+        "id": direction.id,
+        "name": direction.name,
+        "description": direction.description,
+        "icon": direction.icon,
+        "pages": pages_data,
+        "created_at": direction.created_at,
+        "updated_at": direction.updated_at
+    }
 
 
 @router.post("/directions", response_model=WikiDirectionResponse)
@@ -91,7 +154,6 @@ def update_direction(
         direction.icon = direction_data.icon
 
     db.commit()
-
     return get_direction(direction.id, db, current_user)
 
 
@@ -107,28 +169,51 @@ def delete_direction(
 
     db.delete(direction)
     db.commit()
-
     return {"message": "Direction deleted"}
 
 
-# Pages
+# ============ Pages ============
+
 @router.get("/pages/{page_id}", response_model=WikiPageResponse)
 def get_page(
     page_id: int,
+    increment_view: bool = True,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    page = db.query(WikiPage).filter(WikiPage.id == page_id).first()
+    page = db.query(WikiPage).options(
+        joinedload(WikiPage.comments).joinedload(WikiComment.created_by),
+        joinedload(WikiPage.likes),
+        joinedload(WikiPage.created_by)
+    ).filter(WikiPage.id == page_id).first()
 
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
+
+    # 增加浏览量
+    if increment_view:
+        page.view_count = (page.view_count or 0) + 1
+        db.commit()
 
     if page.current_revision_id:
         page.current_revision = db.query(WikiRevision).options(
             joinedload(WikiRevision.created_by)
         ).filter(WikiRevision.id == page.current_revision_id).first()
 
-    return page
+    # 检查当前用户是否已点赞
+    user_liked = db.query(WikiLike).filter(
+        WikiLike.page_id == page_id,
+        WikiLike.user_id == current_user.id
+    ).first() is not None
+
+    # 手动构建响应
+    return {
+        **page.__dict__,
+        "current_revision": page.current_revision,
+        "like_count": len(page.likes) if page.likes else 0,
+        "user_liked": user_liked,
+        "comments": page.comments or []
+    }
 
 
 @router.post("/pages", response_model=WikiPageResponse)
@@ -140,12 +225,13 @@ def create_page(
     page = WikiPage(
         direction_id=page_data.direction_id,
         title=page_data.title,
-        parent_id=page_data.parent_id
+        parent_id=page_data.parent_id,
+        view_count=0,
+        created_by_id=current_user.id  # 记录创建者
     )
     db.add(page)
     db.flush()
 
-    # Create initial revision if content provided
     if page_data.content:
         revision = WikiRevision(
             page_id=page.id,
@@ -163,7 +249,7 @@ def create_page(
     AuditService.log(db, AuditAction.WIKI_CREATE, "WikiPage", page.id, current_user,
                      new_value={"title": page.title})
 
-    return get_page(page.id, db, current_user)
+    return get_page(page.id, increment_view=False, db=db, current_user=current_user)
 
 
 @router.put("/pages/{page_id}", response_model=WikiPageResponse)
@@ -183,8 +269,7 @@ def update_page(
         page.parent_id = page_data.parent_id
 
     db.commit()
-
-    return get_page(page.id, db, current_user)
+    return get_page(page.id, increment_view=False, db=db, current_user=current_user)
 
 
 @router.delete("/pages/{page_id}")
@@ -199,11 +284,11 @@ def delete_page(
 
     db.delete(page)
     db.commit()
-
     return {"message": "Page deleted"}
 
 
-# Revisions
+# ============ Revisions ============
+
 @router.get("/pages/{page_id}/revisions", response_model=List[WikiRevisionResponse])
 def list_revisions(
     page_id: int,
@@ -227,12 +312,8 @@ def create_revision(
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
 
-    # Get next version number
-    max_version = db.query(WikiRevision).filter(
-        WikiRevision.page_id == page_id
-    ).count()
+    max_version = db.query(WikiRevision).filter(WikiRevision.page_id == page_id).count()
 
-    # Revisions are append-only
     revision = WikiRevision(
         page_id=page_id,
         content=revision_data.content,
@@ -242,9 +323,7 @@ def create_revision(
     db.add(revision)
     db.flush()
 
-    # Update page's current revision
     page.current_revision_id = revision.id
-
     db.commit()
     db.refresh(revision)
 
@@ -269,3 +348,120 @@ def get_revision(
     if not revision:
         raise HTTPException(status_code=404, detail="Revision not found")
     return revision
+
+
+# ============ Comments (评论) ============
+
+@router.get("/pages/{page_id}/comments", response_model=List[WikiCommentResponse])
+def list_comments(
+    page_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    comments = db.query(WikiComment).options(
+        joinedload(WikiComment.created_by),
+        joinedload(WikiComment.replies).joinedload(WikiComment.created_by)
+    ).filter(
+        WikiComment.page_id == page_id,
+        WikiComment.parent_id == None  # 只获取顶级评论
+    ).order_by(WikiComment.created_at.desc()).all()
+    return comments
+
+
+@router.post("/pages/{page_id}/comments", response_model=WikiCommentResponse)
+def create_comment(
+    page_id: int,
+    comment_data: WikiCommentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    page = db.query(WikiPage).filter(WikiPage.id == page_id).first()
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    comment = WikiComment(
+        page_id=page_id,
+        content=comment_data.content,
+        parent_id=comment_data.parent_id,
+        created_by_id=current_user.id
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+
+    return db.query(WikiComment).options(
+        joinedload(WikiComment.created_by)
+    ).filter(WikiComment.id == comment.id).first()
+
+
+@router.delete("/comments/{comment_id}")
+def delete_comment(
+    comment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    comment = db.query(WikiComment).filter(WikiComment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    # 只有作者或管理员可以删除
+    if comment.created_by_id != current_user.id and current_user.role.value != "ADMIN":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    db.delete(comment)
+    db.commit()
+    return {"message": "Comment deleted"}
+
+
+# ============ Likes (点赞) ============
+
+class LikeResponse(BaseModel):
+    liked: bool
+    like_count: int
+
+
+@router.post("/pages/{page_id}/like", response_model=LikeResponse)
+def toggle_like(
+    page_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """切换点赞状态（点赞/取消点赞）"""
+    page = db.query(WikiPage).filter(WikiPage.id == page_id).first()
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    existing_like = db.query(WikiLike).filter(
+        WikiLike.page_id == page_id,
+        WikiLike.user_id == current_user.id
+    ).first()
+
+    if existing_like:
+        # 取消点赞
+        db.delete(existing_like)
+        db.commit()
+        like_count = db.query(WikiLike).filter(WikiLike.page_id == page_id).count()
+        return LikeResponse(liked=False, like_count=like_count)
+    else:
+        # 点赞
+        like = WikiLike(page_id=page_id, user_id=current_user.id)
+        db.add(like)
+        db.commit()
+        like_count = db.query(WikiLike).filter(WikiLike.page_id == page_id).count()
+        return LikeResponse(liked=True, like_count=like_count)
+
+
+@router.get("/pages/{page_id}/like")
+def get_like_status(
+    page_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取当前用户的点赞状态"""
+    like_count = db.query(WikiLike).filter(WikiLike.page_id == page_id).count()
+    user_liked = db.query(WikiLike).filter(
+        WikiLike.page_id == page_id,
+        WikiLike.user_id == current_user.id
+    ).first() is not None
+
+    return {"liked": user_liked, "like_count": like_count}

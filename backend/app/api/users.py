@@ -3,8 +3,9 @@ from sqlalchemy.orm import Session
 from typing import List
 from math import ceil
 from ..database import get_db
-from ..models.user import User
+from ..models.user import User, UserRole
 from ..models.audit import AuditAction
+from ..models.capacity import CapacitySlot, SlotType
 from ..schemas.user import UserCreate, UserUpdate, UserResponse
 from ..schemas.common import PaginatedResponse
 from ..services.auth import AuthService, get_current_user, get_current_admin
@@ -13,13 +14,43 @@ from ..services.audit import AuditService
 router = APIRouter()
 
 
+def sync_user_slot(db: Session, user: User):
+    """同步用户的 Slot（创建或更新）"""
+    # 只有 MEMBER/REVIEWER/EXTERNAL 需要 Slot
+    needs_slot = user.role in [UserRole.MEMBER, UserRole.REVIEWER, UserRole.EXTERNAL]
+    
+    # 查找现有 Slot
+    existing_slot = db.query(CapacitySlot).filter(CapacitySlot.user_id == user.id).first()
+    
+    if needs_slot:
+        slot_type = SlotType.EXTERNAL if user.role == UserRole.EXTERNAL else SlotType.ALGO
+        if existing_slot:
+            # 更新现有 Slot
+            existing_slot.name = user.name
+            existing_slot.type = slot_type
+        else:
+            # 创建新 Slot
+            new_slot = CapacitySlot(
+                name=user.name,
+                type=slot_type,
+                user_id=user.id,
+                total_capacity=100
+            )
+            db.add(new_slot)
+    elif existing_slot:
+        # 用户角色变更为不需要 Slot 的角色，检查是否有 binding
+        if not existing_slot.bindings:
+            db.delete(existing_slot)
+
+
 @router.get("", response_model=PaginatedResponse[UserResponse])
 def list_users(
     page: int = 1,
     page_size: int = 20,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin)
 ):
+    """列出所有用户 - 仅限 Admin"""
     total = db.query(User).count()
     users = db.query(User).offset((page - 1) * page_size).limit(page_size).all()
 
@@ -62,6 +93,11 @@ def create_user(
         role=user_data.role
     )
     db.add(user)
+    db.flush()  # 获取 user.id
+    
+    # 自动创建关联的 Slot
+    sync_user_slot(db, user)
+    
     db.commit()
     db.refresh(user)
 
@@ -93,6 +129,9 @@ def update_user(
     if user_data.password is not None:
         user.hashed_password = AuthService.get_password_hash(user_data.password)
 
+    # 同步更新关联的 Slot
+    sync_user_slot(db, user)
+    
     db.commit()
     db.refresh(user)
 

@@ -9,7 +9,7 @@ class WikiRevisionBase(BaseModel):
 
 
 class WikiRevisionCreate(WikiRevisionBase):
-    page_id: int
+    page_id: Optional[int] = None  # 可选，因为 URL 中已有 page_id
 
 
 class WikiRevisionResponse(WikiRevisionBase):
@@ -22,6 +22,31 @@ class WikiRevisionResponse(WikiRevisionBase):
     class Config:
         from_attributes = True
 
+
+# ============ Comments (评论) ============
+
+class WikiCommentBase(BaseModel):
+    content: str
+
+
+class WikiCommentCreate(WikiCommentBase):
+    parent_id: Optional[int] = None  # 回复的父评论 ID
+
+
+class WikiCommentResponse(WikiCommentBase):
+    id: int
+    page_id: int
+    parent_id: Optional[int] = None
+    created_by: Optional[UserResponse] = None
+    created_at: datetime
+    updated_at: datetime
+    replies: List["WikiCommentResponse"] = []
+
+    class Config:
+        from_attributes = True
+
+
+# ============ Pages ============
 
 class WikiPageBase(BaseModel):
     title: str
@@ -43,12 +68,20 @@ class WikiPageResponse(WikiPageBase):
     direction_id: int
     current_revision_id: Optional[int] = None
     current_revision: Optional[WikiRevisionResponse] = None
+    created_by_id: Optional[int] = None
+    created_by: Optional[UserResponse] = None
+    view_count: int = 0
+    like_count: int = 0
+    user_liked: bool = False
+    comments: List[WikiCommentResponse] = []
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
 
+
+# ============ Directions ============
 
 class WikiDirectionBase(BaseModel):
     name: str
@@ -74,3 +107,7 @@ class WikiDirectionResponse(WikiDirectionBase):
 
     class Config:
         from_attributes = True
+
+
+# 解决循环引用
+WikiCommentResponse.model_rebuild()

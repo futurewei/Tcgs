@@ -7,7 +7,8 @@ from .user import UserResponse
 
 class BindingBase(BaseModel):
     topic_id: int
-    slot_id: int
+    slot_id: Optional[int] = None  # 向后兼容
+    user_id: Optional[int] = None  # 新字段：直接用 user_id
     percentage: int = 25
     is_forced: bool = False
 

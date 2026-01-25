@@ -31,3 +31,27 @@ dist/
 build/
 .idea/
 .vscode/
+
+# Python
+backend/venv/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+
+# Node/Vite
+node_modules/
+dist/
+*.log
+
+# Archives / backups
+*.zip
+src_backup_*/
+src_backup_style_*/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/

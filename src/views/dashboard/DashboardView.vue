@@ -1,24 +1,20 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-zinc-900">工作台</h1>
+  <div class="dashboard">
+    <!-- Page Header -->
+    <div class="dashboard-header">
+      <h1 class="dashboard-title">工作台</h1>
+      <p class="dashboard-subtitle" v-if="dragHint">{{ dragHint }}</p>
     </div>
 
-    <div v-if="dragHint" class="text-xs text-zinc-500">
-      {{ dragHint }}
-    </div>
-
-    <div class="grid grid-cols-12 gap-4">
-      <!-- Left -->
-      <div class="col-span-8 space-y-4">
+    <div class="dashboard-grid">
+      <!-- Left Column: Topics -->
+      <div class="dashboard-main">
         <!-- Uncertainty Topics -->
-        <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-          <div class="p-4 border-b border-zinc-100 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <h2 class="font-semibold text-zinc-900">不确定性课题</h2>
-              <span class="px-2 py-0.5 bg-zinc-100 rounded-full text-xs font-medium text-zinc-600">
-                {{ filteredUncertaintyTopics.length }}
-              </span>
+        <section class="topic-section">
+          <div class="section-header">
+            <div class="section-title-group">
+              <h2 class="section-title">不确定性课题</h2>
+              <span class="section-count">{{ filteredUncertaintyTopics.length }}</span>
             </div>
             <el-radio-group v-model="uncertaintyFilter" size="small">
               <el-radio-button label="">全部</el-radio-button>
@@ -28,29 +24,28 @@
             </el-radio-group>
           </div>
 
-          <div class="max-h-[360px] overflow-y-auto p-4 space-y-2">
+          <div class="topic-list">
             <TopicRow
               v-for="topic in filteredUncertaintyTopics"
               :key="topic.id"
               :topic="topic"
+              :hide-stages="true"
               @open="openTopic"
               @binding-pointerdown="startReleaseDrag"
-              :class="hoverTopicId === topic.id ? 'ring-2 ring-emerald-200 border-emerald-400' : ''"
+              :class="{ 'topic-row--hover': hoverTopicId === topic.id }"
             />
-            <div v-if="filteredUncertaintyTopics.length === 0" class="text-center py-8 text-zinc-400">
+            <div v-if="filteredUncertaintyTopics.length === 0" class="empty-state">
               暂无不确定性课题
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- Evolution Projects -->
-        <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-          <div class="p-4 border-b border-zinc-100 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <h2 class="font-semibold text-zinc-900">演进课题</h2>
-              <span class="px-2 py-0.5 bg-zinc-100 rounded-full text-xs font-medium text-zinc-600">
-                {{ filteredEvolutionTopics.length }}
-              </span>
+        <!-- Evolution Topics -->
+        <section class="topic-section">
+          <div class="section-header">
+            <div class="section-title-group">
+              <h2 class="section-title">演进课题</h2>
+              <span class="section-count">{{ filteredEvolutionTopics.length }}</span>
             </div>
             <el-radio-group v-model="evolutionFilter" size="small">
               <el-radio-button label="">全部</el-radio-button>
@@ -60,107 +55,95 @@
             </el-radio-group>
           </div>
 
-          <div class="max-h-[360px] overflow-y-auto p-4 space-y-2">
+          <div class="topic-list">
             <TopicRow
               v-for="topic in filteredEvolutionTopics"
               :key="topic.id"
               :topic="topic"
               @open="openTopic"
               @binding-pointerdown="startReleaseDrag"
-              :class="hoverTopicId === topic.id ? 'ring-2 ring-emerald-200 border-emerald-400' : ''"
+              :class="{ 'topic-row--hover': hoverTopicId === topic.id }"
             />
-            <div v-if="filteredEvolutionTopics.length === 0" class="text-center py-8 text-zinc-400">
+            <div v-if="filteredEvolutionTopics.length === 0" class="empty-state">
               暂无演进课题
             </div>
           </div>
-        </div>
+        </section>
       </div>
 
-      <!-- Right -->
-      <div class="col-span-4 space-y-4" id="dashboard-right-column">
+      <!-- Right Column: Capacity Pool -->
+      <aside class="dashboard-aside" id="dashboard-right-column">
         <!-- Algo Slots -->
         <div
-          class="bg-white rounded-xl border overflow-hidden transition-all"
-          :class="poolHover === 'ALGO' ? 'border-emerald-400 ring-2 ring-emerald-200' : 'border-zinc-200'"
+          class="capacity-panel"
+          :class="{ 'capacity-panel--active': poolHover === 'ALGO' }"
           data-pool-drop="ALGO"
         >
-          <div class="p-4 border-b border-zinc-100">
-            <div class="flex items-center gap-2">
-              <h2 class="font-semibold text-zinc-900">自有人力</h2>
-              <span class="px-2 py-0.5 bg-zinc-100 rounded-full text-xs font-medium text-zinc-600">
-                {{ algoSlots.length }}
-              </span>
-            </div>
+          <div class="panel-header">
+            <span class="panel-title">自有人力</span>
+            <span class="panel-count">{{ algoSlots.length }}</span>
           </div>
-
-          <div class="p-4">
-            <div class="flex flex-wrap gap-2">
+          <div class="panel-body">
+            <div class="slot-grid">
               <div
                 v-for="slot in algoSlots"
                 :key="slot.id"
-                class="select-none"
+                class="slot-item"
                 @pointerdown.prevent="startAssignDrag($event, slot.id)"
               >
                 <SlotChip :slot="slot" show-percentage :draggable="true" />
               </div>
-              <div v-if="algoSlots.length === 0" class="text-sm text-zinc-400">
-                暂无自有人力
-              </div>
+              <div v-if="algoSlots.length === 0" class="empty-hint">暂无自有人力</div>
             </div>
           </div>
         </div>
 
         <!-- External Slots -->
         <div
-          class="bg-white rounded-xl border overflow-hidden transition-all"
-          :class="poolHover === 'EXTERNAL' ? 'border-emerald-400 ring-2 ring-emerald-200' : 'border-zinc-200'"
+          class="capacity-panel"
+          :class="{ 'capacity-panel--active': poolHover === 'EXTERNAL' }"
           data-pool-drop="EXTERNAL"
         >
-          <div class="p-4 border-b border-zinc-100">
-            <div class="flex items-center gap-2">
-              <h2 class="font-semibold text-zinc-900">协调人力</h2>
-              <span class="px-2 py-0.5 bg-zinc-100 rounded-full text-xs font-medium text-zinc-600">
-                {{ externalSlots.length }}
-              </span>
-            </div>
+          <div class="panel-header">
+            <span class="panel-title">协调人力</span>
+            <span class="panel-count">{{ externalSlots.length }}</span>
           </div>
-
-          <div class="p-4">
-            <div class="flex flex-wrap gap-2">
+          <div class="panel-body">
+            <div class="slot-grid">
               <div
                 v-for="slot in externalSlots"
                 :key="slot.id"
-                class="select-none"
+                class="slot-item"
                 @pointerdown.prevent="startAssignDrag($event, slot.id)"
               >
                 <SlotChip :slot="slot" show-percentage :draggable="true" />
               </div>
-              <div v-if="externalSlots.length === 0" class="text-sm text-zinc-400">
-                暂无协调人力
-              </div>
+              <div v-if="externalSlots.length === 0" class="empty-hint">暂无协调人力</div>
             </div>
           </div>
         </div>
 
         <!-- Quick Stats -->
-        <div class="bg-white rounded-xl border border-zinc-200 p-4">
-          <h3 class="font-semibold text-zinc-900 mb-4">快速统计</h3>
-          <div class="space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-zinc-600">进行中课题</span>
-              <span class="font-semibold text-zinc-900">{{ openTopicsCount }}</span>
+        <div class="stats-panel">
+          <div class="panel-header">
+            <span class="panel-title">快速统计</span>
+          </div>
+          <div class="stats-body">
+            <div class="stat-row">
+              <span class="stat-label">进行中</span>
+              <span class="stat-value">{{ openTopicsCount }}</span>
             </div>
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-zinc-600">已完成</span>
-              <span class="font-semibold text-emerald-600">{{ completedTopicsCount }}</span>
+            <div class="stat-row">
+              <span class="stat-label">已完成</span>
+              <span class="stat-value stat-value--success">{{ completedTopicsCount }}</span>
             </div>
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-zinc-600">无法解决</span>
-              <span class="font-semibold text-rose-600">{{ unsolvableTopicsCount }}</span>
+            <div class="stat-row">
+              <span class="stat-label">无法解决</span>
+              <span class="stat-value stat-value--danger">{{ unsolvableTopicsCount }}</span>
             </div>
           </div>
         </div>
-      </div>
+      </aside>
     </div>
 
     <!-- Add binding dialog -->
@@ -207,7 +190,6 @@ const evolutionTopics = computed(() =>
   topicsStore.topics.filter((t) => t.type === 'EVOLUTION' && t.result === 'OPEN')
 );
 
-// Helper to check if user is DRI of a topic
 function isDriOfTopic(topic: Topic): boolean {
   const bindings = (topic as any).bindings || [];
   const driBinding = bindings.find((b: any) => b.isDri || b.is_dri);
@@ -272,26 +254,31 @@ let ghostEl: HTMLDivElement | null = null;
 
 function createGhost(text: string, x: number, y: number) {
   ghostEl = document.createElement('div');
-  ghostEl.style.position = 'fixed';
-  ghostEl.style.left = `${x + 12}px`;
-  ghostEl.style.top = `${y + 12}px`;
-  ghostEl.style.zIndex = '99999';
-  ghostEl.style.pointerEvents = 'none';
-  ghostEl.style.padding = '6px 10px';
-  ghostEl.style.borderRadius = '9999px';
-  ghostEl.style.background = 'rgba(255,255,255,0.92)';
-  ghostEl.style.border = '1px solid rgba(0,0,0,0.08)';
-  ghostEl.style.boxShadow = '0 6px 18px rgba(0,0,0,0.12)';
-  ghostEl.style.fontSize = '12px';
-  ghostEl.style.color = '#3f3f46';
+  ghostEl.style.cssText = `
+    position: fixed;
+    left: ${x + 12}px;
+    top: ${y + 12}px;
+    z-index: 99999;
+    pointer-events: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid var(--color-border-default);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+  `;
   ghostEl.innerText = text;
   document.body.appendChild(ghostEl);
 }
+
 function moveGhost(x: number, y: number) {
   if (!ghostEl) return;
   ghostEl.style.left = `${x + 12}px`;
   ghostEl.style.top = `${y + 12}px`;
 }
+
 function removeGhost() {
   if (ghostEl) ghostEl.remove();
   ghostEl = null;
@@ -315,32 +302,22 @@ function findPoolUnderPointer(x: number, y: number): PoolType | null {
       if (raw === 'ALGO' || raw === 'EXTERNAL') return raw;
     }
   }
-
   const right = document.getElementById('dashboard-right-column');
   if (!right) return null;
-
   const rect = right.getBoundingClientRect();
-  const inside =
-    x >= rect.left && x <= rect.right &&
-    y >= rect.top && y <= rect.bottom;
+  const inside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
   if (!inside) return null;
-
   const algoEl = right.querySelector('[data-pool-drop="ALGO"]') as HTMLElement | null;
   const extEl = right.querySelector('[data-pool-drop="EXTERNAL"]') as HTMLElement | null;
-
   if (algoEl && extEl) {
     const a = algoEl.getBoundingClientRect();
     const e = extEl.getBoundingClientRect();
-
     const inAlgo = x >= a.left && x <= a.right && y >= a.top && y <= a.bottom;
     const inExt = x >= e.left && x <= e.right && y >= e.top && y <= e.bottom;
-
     if (inAlgo) return 'ALGO';
     if (inExt) return 'EXTERNAL';
-
     return y < (a.bottom + e.top) / 2 ? 'ALGO' : 'EXTERNAL';
   }
-
   if (algoEl) return 'ALGO';
   if (extEl) return 'EXTERNAL';
   return null;
@@ -349,16 +326,12 @@ function findPoolUnderPointer(x: number, y: number): PoolType | null {
 /** Assign: Slot -> Topic */
 function startAssignDrag(e: PointerEvent, slotId: number) {
   if (e.button !== 0) return;
-
   dragMode.value = 'assign';
   draggingSlotId.value = slotId;
   hoverTopicId.value = null;
-
   const slot = capacityStore.slots.find((s) => s.id === slotId);
   createGhost(slot?.name ?? `Slot#${slotId}`, e.clientX, e.clientY);
-
   (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-
   window.addEventListener('pointermove', onAssignMove, { passive: true });
   window.addEventListener('pointerup', onAssignUp, { passive: true });
 }
@@ -371,21 +344,15 @@ function onAssignMove(e: PointerEvent) {
 
 function onAssignUp() {
   if (dragMode.value !== 'assign') return;
-
   window.removeEventListener('pointermove', onAssignMove);
   window.removeEventListener('pointerup', onAssignUp);
-
   removeGhost();
-
   const slotId = draggingSlotId.value;
   const topicId = hoverTopicId.value;
-
   dragMode.value = 'none';
   draggingSlotId.value = null;
   hoverTopicId.value = null;
-
   if (!slotId || !topicId) return;
-
   bindingTopicId.value = topicId;
   bindingSlotId.value = slotId;
   addBindingOpen.value = true;
@@ -395,16 +362,12 @@ function onAssignUp() {
 function startReleaseDrag(payload: { e: PointerEvent; binding: any }) {
   const e = payload.e;
   if (e.button !== 0) return;
-
   dragMode.value = 'release';
   draggingBindingId.value = payload.binding.id;
   poolHover.value = null;
-
   const label = `${payload.binding.slot?.name ?? `Slot#${payload.binding.slotId}`} (${payload.binding.percentage}%)`;
   createGhost(label, e.clientX, e.clientY);
-
   (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-
   window.addEventListener('pointermove', onReleaseMove, { passive: true });
   window.addEventListener('pointerup', onReleaseUp, { passive: true });
 }
@@ -418,13 +381,7 @@ function onReleaseMove(e: PointerEvent) {
 function findBindingInLocalState(bindingId: number): any | null {
   for (const t of topicsStore.topics) {
     const b = t.bindings?.find((x: any) => x.id === bindingId);
-    if (b) {
-      return {
-        ...b,
-        topicId: b.topicId ?? t.id,
-        slotId: b.slotId,
-      };
-    }
+    if (b) return { ...b, topicId: b.topicId ?? t.id, slotId: b.slotId };
   }
   return null;
 }
@@ -441,31 +398,23 @@ function findAllBindingIdsInSameTopicAndSlot(bindingId: number): number[] {
 
 async function onReleaseUp() {
   if (dragMode.value !== 'release') return;
-
   window.removeEventListener('pointermove', onReleaseMove);
   window.removeEventListener('pointerup', onReleaseUp);
-
   removeGhost();
-
   const bindingId = draggingBindingId.value;
   const pool = poolHover.value;
-
   dragMode.value = 'none';
   draggingBindingId.value = null;
   poolHover.value = null;
-
   if (!bindingId || !pool) return;
-
   const binding = findBindingInLocalState(bindingId);
   if (!binding) {
     await capacityStore.deleteBinding(bindingId);
     await Promise.all([topicsStore.fetchTopics(), capacityStore.fetchSlots()]);
     return;
   }
-
   const ids = findAllBindingIdsInSameTopicAndSlot(bindingId);
   if (!ids.length) return;
-
   const snapshot: any[] = [];
   {
     const t = topicsStore.topics.find((x: any) => x.id === binding.topicId);
@@ -476,12 +425,10 @@ async function onReleaseUp() {
       }
     }
   }
-
   for (const id of ids) {
     topicsStore.removeBindingLocal(id);
     capacityStore.removeBindingLocal(id);
   }
-
   try {
     await Promise.all(ids.map((id) => capacityStore.deleteBinding(id)));
     ElMessage.success('已释放');
@@ -499,3 +446,216 @@ onMounted(() => {
   capacityStore.fetchSlots();
 });
 </script>
+
+<style scoped>
+/* ══════════════════════════════════════════════════════════════
+   DASHBOARD LAYOUT
+   ══════════════════════════════════════════════════════════════ */
+.dashboard {
+  max-width: var(--content-max-width);
+}
+
+.dashboard-header {
+  margin-bottom: var(--space-6);
+}
+
+.dashboard-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+}
+
+.dashboard-subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  margin: var(--space-1) 0 0;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: var(--space-5);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TOPIC SECTIONS
+   ══════════════════════════════════════════════════════════════ */
+.dashboard-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.topic-section {
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-secondary);
+}
+
+.section-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.section-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+  letter-spacing: var(--tracking-tight);
+}
+
+.section-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: var(--color-neutral-200);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-tertiary);
+}
+
+.topic-list {
+  max-height: 380px;
+  overflow-y: auto;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.topic-row--hover {
+  box-shadow: inset 0 0 0 2px var(--color-primary-300);
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-10) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RIGHT SIDEBAR
+   ══════════════════════════════════════════════════════════════ */
+.dashboard-aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.capacity-panel,
+.stats-panel {
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.capacity-panel--active {
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 0 2px var(--color-primary-100);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-secondary);
+}
+
+.panel-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+}
+
+.panel-count {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-tertiary);
+  background: var(--color-neutral-200);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.panel-body {
+  padding: var(--space-4);
+}
+
+.slot-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.slot-item {
+  cursor: grab;
+  user-select: none;
+}
+
+.slot-item:active {
+  cursor: grabbing;
+}
+
+.empty-hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   STATS PANEL
+   ══════════════════════════════════════════════════════════════ */
+.stats-body {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stat-label {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.stat-value {
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-value--success {
+  color: var(--color-success);
+}
+
+.stat-value--danger {
+  color: var(--color-danger);
+}
+</style>

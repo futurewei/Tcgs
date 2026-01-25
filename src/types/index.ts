@@ -62,13 +62,17 @@ export interface Topic {
   id: number;
   title: string;
   description: string;
+  background?: string;  // 课题背景（WHY）
+  userGoal?: string;    // 用户视角目标（WHAT）
   type: TopicType;
   urgency: TopicUrgency;
   result: TopicResult;
   templateId: number;
   template: StageTemplate;
   stageStates: TopicStageState[];
+  stageInstances?: StageInstance[];  // 新的阶段实例
   currentStageId?: number;
+  currentStageInstanceId?: number;
   requesterName: string;
   requesterUserId?: number;
   requesterUser?: User;
@@ -98,6 +102,8 @@ export interface TopicCreateRequest {
 export interface TopicUpdateRequest {
   title?: string;
   description?: string;
+  background?: string;
+  userGoal?: string;
   urgency?: TopicUrgency;
   result?: TopicResult;
   currentStageId?: number;
@@ -210,7 +216,8 @@ export interface Binding {
 
 export interface BindingCreateRequest {
   topicId: number;
-  slotId: number;
+  slotId?: number;   // 旧方式（向后兼容）
+  userId?: number;   // 新方式：直接用 user_id
   percentage: number;
   isForced?: boolean;
   isDri?: boolean;  // If true, this becomes the DRI
@@ -235,6 +242,10 @@ export interface WikiPage {
   children?: WikiPage[];
   currentRevisionId?: number;
   currentRevision?: WikiRevision;
+  viewCount: number;      // 浏览量
+  likeCount: number;      // 点赞数
+  userLiked: boolean;     // 当前用户是否已点赞
+  comments?: WikiComment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -247,6 +258,18 @@ export interface WikiRevision {
   createdById: number;
   createdBy: User;
   createdAt: string;
+}
+
+export interface WikiComment {
+  id: number;
+  pageId: number;
+  content: string;
+  parentId?: number;
+  createdById: number;
+  createdBy?: User;
+  createdAt: string;
+  updatedAt: string;
+  replies?: WikiComment[];
 }
 
 export interface WikiPageCreateRequest {
@@ -361,4 +384,55 @@ export interface ApiResponse<T> {
 // Change DRI Request
 export interface ChangeDRIRequest {
   newDriSlotId: number;
+}
+
+
+// ============ Stage Instance Types (新) ============
+
+export type StageInstanceStatus = 'pending' | 'active' | 'done' | 'skipped' | 'failed';
+
+export interface TechPointContributor {
+  id: number;
+  userId: number;
+  userName?: string;
+  contribution?: string;
+  contributionPercentage?: number;
+}
+
+export interface TechPoint {
+  id: number;
+  stageId: number;
+  name: string;
+  description?: string;
+  hypothesis?: string;
+  approach?: string;
+  conclusion?: string;
+  status: string;
+  order: number;
+  firstAuthor?: User;
+  contributors: TechPointContributor[];
+  createdAt?: string;
+}
+
+export interface StageInstance {
+  id: number;
+  topicId: number;
+  name: string;
+  description?: string;
+  order: number;
+  isTerminal: boolean;
+  allowResult: boolean;
+  requireArtifact: boolean;
+  status: StageInstanceStatus;
+  startedAt?: string;
+  completedAt?: string;
+  objective?: string;
+  successCriteria?: string;
+  failureCriteria?: string;
+  conclusion?: string;
+  clonedFromId?: number;
+  createdBy?: User;
+  createdAt?: string;
+  techPoints?: TechPoint[];
+  deliverables?: StageDeliverable[];
 }
