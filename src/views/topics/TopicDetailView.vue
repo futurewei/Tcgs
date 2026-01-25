@@ -1445,19 +1445,18 @@ watch(topicId, async (id) => {
   color: var(--color-warning-600);
 }
 
-.risks-list {
-  divide-y divide-solid;
+/* 用原生 CSS 实现 Tailwind 的 divide-y（只对直接子元素生效） */
+.risks-list > * + * {
+  border-top: 1px solid var(--color-border-light);
 }
+
 .risk-item {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border-light);
 }
-.risk-item:last-child {
-  border-bottom: none;
-}
+
 .risk-indicator {
   width: 10px;
   height: 10px;
