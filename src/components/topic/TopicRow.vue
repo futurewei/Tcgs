@@ -1,16 +1,12 @@
 <template>
-  <div
-    class="topic-row"
-    :data-topic-drop="props.topic.id"
-    @click="emit('open', props.topic)"
-  >
+  <div class="topic-row" :data-topic-drop="props.topic.id" @click="emit('open', props.topic)">
     <!-- Main Row -->
     <div class="topic-main">
       <!-- Title & Meta -->
       <div class="topic-content">
         <div class="topic-title-row">
           <h4 class="topic-title">{{ props.topic.title }}</h4>
-          <span :class="['priority-tag', `priority-tag--${props.topic.urgency?.toLowerCase()}`]">
+          <span :class="['priority-tag', `priority-tag--${(props.topic.urgency || '').toLowerCase()}`]">
             {{ props.topic.urgency }}
           </span>
         </div>
@@ -41,7 +37,7 @@
 
       <!-- Result Badge -->
       <div class="topic-result">
-        <span :class="['result-badge', `result-badge--${props.topic.result?.toLowerCase()}`]">
+        <span :class="['result-badge', `result-badge--${(props.topic.result || '').toLowerCase()}`]">
           {{ resultLabel }}
         </span>
       </div>
@@ -57,33 +53,18 @@
         <div
           v-if="b.isDri"
           class="dri-chip"
-          title="拖动释放"
+          title="点击编辑时间投入，长按拖拽释放（DRI会被拦截）"
           @pointerdown.stop.prevent="emit('binding-pointerdown', { e: $event, binding: b })"
         >
           <span class="dri-dot"></span>
 
-          <!-- 名字可点进 profile：必须 stop 掉 pointerdown，避免触发释放拖拽 -->
-          <router-link
-            v-if="getBindingUserId(b)"
-            class="dri-name"
-            :to="`/profile/user/${getBindingUserId(b)}`"
-            @click.stop
-            @mousedown.stop
-            @pointerdown.stop
-            @pointerup.stop
-          >
-            {{ getBindingUserName(b) }}
-          </router-link>
-
-          <!-- 没有 userId 就展示灰态文本 -->
+          <!-- 短按打开编辑对话框，长按触发拖拽 -->
           <span
-            v-else
-            class="dri-name dri-name--disabled"
-            @click.stop
-            @mousedown.stop
-            @pointerdown.stop
-            @pointerup.stop
-            title="该绑定没有关联到用户"
+            class="dri-name"
+            :class="{ 'dri-name--clickable': true }"
+            @click.stop="onNameClick($event, b)"
+            @pointerdown.stop.prevent="startLongPress($event, b)"
+            title="点击编辑时间投入，长按拖拽释放"
           >
             {{ getBindingUserName(b) }}
           </span>
@@ -95,22 +76,26 @@
         <div
           v-else-if="b.slot?.type !== 'EXTERNAL'"
           class="member-chip member-chip--internal"
-          title="拖动释放"
+          title="点击编辑，拖动释放"
+          @click.stop="emit('binding-click', b)"
           @pointerdown.stop.prevent="emit('binding-pointerdown', { e: $event, binding: b })"
         >
           <span class="member-dot"></span>
           <span class="member-name">{{ b.slot?.name || '未知' }}</span>
+          <span class="member-percent">{{ b.percentage ?? 0 }}%</span>
         </div>
 
         <!-- External Member -->
         <div
           v-else
           class="member-chip member-chip--external"
-          title="拖动释放"
+          title="点击编辑，拖动释放"
+          @click.stop="emit('binding-click', b)"
           @pointerdown.stop.prevent="emit('binding-pointerdown', { e: $event, binding: b })"
         >
           <span class="member-dot"></span>
           <span class="member-name">{{ b.slot?.name || '未知' }}</span>
+          <span class="member-percent">{{ b.percentage ?? 0 }}%</span>
         </div>
       </div>
     </div>
@@ -118,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, onUnmounted } from 'vue';
 import type { Topic } from '@/types';
 import StageTimeline from './StageTimeline.vue';
 
@@ -130,12 +115,90 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'open', topic: Topic): void;
   (e: 'binding-pointerdown', payload: { e: PointerEvent; binding: any }): void;
+  (e: 'binding-click', binding: any): void;
 }>();
 
+// ========== 长按拖拽逻辑 ==========
+const LONG_PRESS_DURATION = 300; // ms
+
+let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingBinding: any = null;
+let pendingEvent: PointerEvent | null = null;
+const isLongPressing = ref(false);
+
+function startLongPress(e: PointerEvent, binding: any) {
+  // 只响应左键
+  if (e.button !== 0) return;
+
+  pendingBinding = binding;
+  pendingEvent = e;
+  isLongPressing.value = false;
+
+  longPressTimer = setTimeout(() => {
+    isLongPressing.value = true;
+    // 长按触发拖拽
+    if (pendingEvent && pendingBinding) {
+      emit('binding-pointerdown', { e: pendingEvent, binding: pendingBinding });
+    }
+    clearLongPress();
+  }, LONG_PRESS_DURATION);
+
+  // 监听取消事件
+  window.addEventListener('pointerup', cancelLongPress, { once: true });
+  window.addEventListener('pointermove', onPointerMoveCheck);
+}
+
+function onPointerMoveCheck(e: PointerEvent) {
+  // 如果移动超过阈值，取消长按（允许小幅度抖动）
+  if (!pendingEvent) return;
+  const dx = Math.abs(e.clientX - pendingEvent.clientX);
+  const dy = Math.abs(e.clientY - pendingEvent.clientY);
+  if (dx > 5 || dy > 5) {
+    cancelLongPress();
+  }
+}
+
+function cancelLongPress() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  pendingBinding = null;
+  pendingEvent = null;
+  window.removeEventListener('pointermove', onPointerMoveCheck);
+}
+
+function clearLongPress() {
+  longPressTimer = null;
+  pendingBinding = null;
+  pendingEvent = null;
+  window.removeEventListener('pointerup', cancelLongPress);
+  window.removeEventListener('pointermove', onPointerMoveCheck);
+}
+
+function onNameClick(e: MouseEvent, binding: any) {
+  // 如果刚刚触发了长按拖拽，阻止点击
+  if (isLongPressing.value) {
+    e.preventDefault();
+    e.stopPropagation();
+    isLongPressing.value = false;
+    return;
+  }
+  // 短按打开编辑对话框
+  e.preventDefault();
+  e.stopPropagation();
+  emit('binding-click', binding);
+}
+
+onUnmounted(() => {
+  cancelLongPress();
+});
+
+// ========== 其余显示逻辑 ==========
 const isUncertainty = computed(() => props.topic.type === 'UNCERTAINTY');
 
 const resultLabel = computed(() => {
-  switch (props.topic.result) {
+  switch ((props.topic as any).result) {
     case 'SUCCESS':
       return '已完成';
     case 'UNSOLVABLE':
@@ -143,7 +206,7 @@ const resultLabel = computed(() => {
     case 'OPEN':
       return '进行中';
     default:
-      return props.topic.result as any;
+      return (props.topic as any).result;
   }
 });
 
@@ -180,23 +243,6 @@ const stageInstancesNormalized = computed(() => {
     .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
 });
 
-/**
- * 统一取 userId / userName：兼容所有字段命名
- */
-function getBindingUserId(b: any): number | null {
-  const id =
-    b?.user?.id ??
-    b?.userId ??
-    b?.user_id ??
-    b?.slot?.user?.id ??
-    b?.slot?.userId ??
-    b?.slot?.user_id ??
-    null;
-
-  const n = Number(id);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
 function getBindingUserName(b: any): string {
   return b?.user?.name ?? b?.slot?.user?.name ?? b?.slot?.name ?? '未知';
 }
@@ -232,9 +278,6 @@ const sortedBindings = computed(() => {
 </script>
 
 <style scoped>
-/* ══════════════════════════════════════════════════════════════
-   TOPIC ROW - 克制的卡片设计
-   ══════════════════════════════════════════════════════════════ */
 .topic-row {
   padding: var(--space-3) var(--space-4);
   background: var(--color-surface-primary);
@@ -255,9 +298,6 @@ const sortedBindings = computed(() => {
   gap: var(--space-4);
 }
 
-/* ══════════════════════════════════════════════════════════════
-   TITLE & META
-   ══════════════════════════════════════════════════════════════ */
 .topic-content {
   flex: 1;
   min-width: 0;
@@ -293,9 +333,6 @@ const sortedBindings = computed(() => {
   white-space: nowrap;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   PRIORITY TAG
-   ══════════════════════════════════════════════════════════════ */
 .priority-tag {
   display: inline-flex;
   align-items: center;
@@ -309,24 +346,6 @@ const sortedBindings = computed(() => {
   flex-shrink: 0;
 }
 
-.priority-tag--p0 {
-  background: var(--color-priority-p0-bg);
-  color: var(--color-priority-p0);
-}
-
-.priority-tag--p1 {
-  background: var(--color-priority-p1-bg);
-  color: var(--color-priority-p1);
-}
-
-.priority-tag--p2 {
-  background: var(--color-priority-p2-bg);
-  color: var(--color-priority-p2);
-}
-
-/* ══════════════════════════════════════════════════════════════
-   STAGE FLOW
-   ══════════════════════════════════════════════════════════════ */
 .topic-stages {
   flex-shrink: 0;
 }
@@ -383,9 +402,6 @@ const sortedBindings = computed(() => {
   font-size: 10px;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   RESULT BADGE
-   ══════════════════════════════════════════════════════════════ */
 .topic-result {
   flex-shrink: 0;
 }
@@ -399,31 +415,10 @@ const sortedBindings = computed(() => {
   font-weight: var(--font-medium);
 }
 
-.result-badge--open {
-  background: var(--color-neutral-100);
-  color: var(--color-text-secondary);
-}
-
-.result-badge--success {
-  background: var(--color-success-light);
-  color: var(--color-success);
-}
-
-.result-badge--unsolvable {
-  background: var(--color-danger-light);
-  color: var(--color-danger);
-}
-
-/* ══════════════════════════════════════════════════════════════
-   ACTION BUTTON
-   ══════════════════════════════════════════════════════════════ */
 .topic-action {
   flex-shrink: 0;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   BINDINGS
-   ══════════════════════════════════════════════════════════════ */
 .topic-bindings {
   display: flex;
   flex-wrap: wrap;
@@ -437,17 +432,7 @@ const sortedBindings = computed(() => {
   user-select: none;
 }
 
-/* 让“可拖拽释放”的 chip 有 grab 手势 */
-.dri-chip,
-.member-chip {
-  cursor: grab;
-}
-.dri-chip:active,
-.member-chip:active {
-  cursor: grabbing;
-}
-
-/* DRI Chip */
+/* DRI */
 .dri-chip {
   display: inline-flex;
   align-items: center;
@@ -456,11 +441,11 @@ const sortedBindings = computed(() => {
   background: var(--color-dri-bg);
   border: 1px solid var(--color-dri-border);
   border-radius: var(--radius-md);
-  transition: background-color var(--transition-fast);
+  cursor: grab;
 }
 
-.dri-chip:hover {
-  background: var(--color-primary-200);
+.dri-chip:active {
+  cursor: grabbing;
 }
 
 .dri-dot {
@@ -474,18 +459,12 @@ const sortedBindings = computed(() => {
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   color: var(--color-dri);
-  text-decoration: none;
-  cursor: pointer; /* 覆盖 grab，让用户知道能点 */
+  cursor: pointer;
+  user-select: none;
 }
 
-.dri-name:hover {
+.dri-name--clickable:hover {
   text-decoration: underline;
-}
-
-.dri-name--disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
-  text-decoration: none;
 }
 
 .dri-tag {
@@ -498,7 +477,7 @@ const sortedBindings = computed(() => {
   letter-spacing: 0.03em;
 }
 
-/* Member Chip */
+/* Members */
 .member-chip {
   display: inline-flex;
   align-items: center;
@@ -507,20 +486,16 @@ const sortedBindings = computed(() => {
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
-  transition: background-color var(--transition-fast);
+  cursor: grab;
+}
+
+.member-chip:active {
+  cursor: grabbing;
 }
 
 .member-chip--internal {
   background: var(--color-member-internal-bg);
   color: var(--color-member-internal);
-}
-
-.member-chip--internal:hover {
-  background: var(--color-neutral-200);
-}
-
-.member-chip--internal .member-dot {
-  background: var(--color-neutral-500);
 }
 
 .member-chip--external {
@@ -529,22 +504,22 @@ const sortedBindings = computed(() => {
   border: 1px dashed var(--color-member-external-border);
 }
 
-.member-chip--external:hover {
-  background: var(--color-neutral-50);
-}
-
-.member-chip--external .member-dot {
-  background: var(--color-neutral-400);
-}
-
 .member-dot {
   width: 5px;
   height: 5px;
   border-radius: var(--radius-full);
   flex-shrink: 0;
+  background: currentColor;
+  opacity: 0.8;
 }
 
 .member-name {
   white-space: nowrap;
+}
+
+.member-percent {
+  margin-left: 6px;
+  font-size: 12px;
+  opacity: 0.75;
 }
 </style>

@@ -32,6 +32,7 @@
               :hide-stages="true"
               @open="openTopic"
               @binding-pointerdown="startReleaseDrag"
+              @binding-click="openEditBinding"
               :class="{ 'topic-row--hover': hoverTopicId === topic.id }"
             />
             <div v-if="filteredUncertaintyTopics.length === 0" class="empty-state">
@@ -62,6 +63,7 @@
               :topic="topic"
               @open="openTopic"
               @binding-pointerdown="startReleaseDrag"
+              @binding-click="openEditBinding"
               :class="{ 'topic-row--hover': hoverTopicId === topic.id }"
             />
             <div v-if="filteredEvolutionTopics.length === 0" class="empty-state">
@@ -153,6 +155,14 @@
       :initial-slot-id="bindingSlotId"
       @created="afterBindingCreated"
     />
+
+    <!-- Edit binding dialog -->
+    <EditBindingDialog
+      v-model="editBindingOpen"
+      :binding="editingBinding"
+      @updated="afterBindingUpdated"
+      @deleted="afterBindingUpdated"
+    />
   </div>
 </template>
 
@@ -168,6 +178,7 @@ import { useAuthStore } from '@/stores/auth';
 import TopicRow from '@/components/topic/TopicRow.vue';
 import SlotChip from '@/components/common/SlotChip.vue';
 import AddBindingDialog from '@/components/topic/AddBindingDialog.vue';
+import EditBindingDialog from '@/components/topic/EditBindingDialog.vue';
 
 import type { Topic } from '@/types';
 
@@ -220,8 +231,12 @@ const externalSlots = computed(() => capacityStore.externalSlots);
 
 /** stats */
 const openTopicsCount = computed(() => topicsStore.topics.filter((t) => t.result === 'OPEN').length);
-const completedTopicsCount = computed(() => topicsStore.topics.filter((t) => t.result === 'SUCCESS').length);
-const unsolvableTopicsCount = computed(() => topicsStore.topics.filter((t) => t.result === 'UNSOLVABLE').length);
+const completedTopicsCount = computed(() =>
+  topicsStore.topics.filter((t) => t.result === 'SUCCESS').length
+);
+const unsolvableTopicsCount = computed(() =>
+  topicsStore.topics.filter((t) => t.result === 'UNSOLVABLE').length
+);
 
 function openTopic(topic: Topic) {
   router.push(`/topics/${topic.id}`);
@@ -232,7 +247,20 @@ const addBindingOpen = ref(false);
 const bindingTopicId = ref(0);
 const bindingSlotId = ref<number | undefined>(undefined);
 
+/** EditBindingDialog state */
+const editBindingOpen = ref(false);
+const editingBinding = ref<any>(null);
+
+function openEditBinding(binding: any) {
+  editingBinding.value = binding;
+  editBindingOpen.value = true;
+}
+
 async function afterBindingCreated() {
+  await Promise.all([topicsStore.fetchTopics(), capacityStore.fetchSlots()]);
+}
+
+async function afterBindingUpdated() {
   await Promise.all([topicsStore.fetchTopics(), capacityStore.fetchSlots()]);
 }
 
@@ -379,20 +407,17 @@ function getTopicAndBinding(bindingId: number): { topic: any; binding: any } | n
   return null;
 }
 
-/** 前端预判：是否允许释放（避免“最后一个DRI”触发后端约束失败） */
+/** 前端预判：是否允许释放 */
 function canReleaseBinding(bindingId: number): { ok: boolean; reason?: string } {
   const pair = getTopicAndBinding(bindingId);
   if (!pair) return { ok: true }; // 本地没找到，交给后端处理
 
-  const { topic, binding } = pair;
-  const bindings = (topic.bindings || []) as any[];
-
+  const { binding } = pair;
   const isDri = !!(binding.isDri || binding.is_dri);
-  const bindingCount = bindings.length;
 
-  // 如果这个课题只有一个绑定，并且它是 DRI，则不允许释放
-  if (isDri && bindingCount <= 1) {
-    return { ok: false, reason: '该课题只剩最后一个 DRI，不能释放。请先为课题分配其他成员/DRI。' };
+  // DRI 责任人不能直接释放（需要通过编辑对话框调整时间投入，或通过“更换DRI”流程）
+  if (isDri) {
+    return { ok: false, reason: 'DRI 责任人不能直接移除。请点击成员卡片调整时间投入。' };
   }
 
   return { ok: true };
@@ -403,17 +428,13 @@ function startReleaseDrag(payload: { e: PointerEvent; binding: any }) {
   const e = payload.e;
   if (e.button !== 0) return;
 
-  // ✅ 点击跳转/点击文本时不要被拖拽吃掉（后续你把 TopicRow 的名字改成 router-link 后就生效）
+  // 检查是否有显式禁止拖拽的区域
   const target = e.target as HTMLElement | null;
-  if (
-    target?.closest('a') ||              // router-link 渲染成 <a>
-    target?.closest('.dri-name') ||      // 你现在 DOM 里就是 .dri-name
-    target?.closest('[data-no-drag]')    // 预留：以后想强制禁拖的区域加这个属性
-  ) {
+  if (target?.closest('[data-no-drag]')) {
     return;
   }
 
-  // ✅ 前置规则：最后一个 DRI 不允许释放（避免后端 not null/约束失败导致回滚）
+  // ✅ 前置规则：DRI 不允许拖拽释放
   const check = canReleaseBinding(payload.binding.id);
   if (!check.ok) {
     ElMessage.warning(check.reason || '当前绑定不允许释放');
@@ -534,10 +555,9 @@ async function onReleaseUp() {
       capacityStore.addBindingLocal(slotId, b);
     }
 
-    // ✅ 这里把“最后一个DRI/约束失败”提示得更明确一些
     const msg = String(err?.response?.data?.detail || err?.message || '');
     if (msg.includes('dri') || msg.includes('DRI') || msg.includes('not null')) {
-      ElMessage.error('释放失败：该课题必须保留 DRI 责任人（请先分配其他成员/DRI）');
+      ElMessage.error('释放失败：该课题必须保留 DRI 责任人（请通过编辑调整投入或更换 DRI）');
     } else {
       ElMessage.error('释放失败，已回滚');
     }
