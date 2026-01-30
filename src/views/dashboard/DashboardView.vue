@@ -169,7 +169,7 @@ import TopicRow from '@/components/topic/TopicRow.vue';
 import SlotChip from '@/components/common/SlotChip.vue';
 import AddBindingDialog from '@/components/topic/AddBindingDialog.vue';
 
-import type { Topic, Binding } from '@/types';
+import type { Topic } from '@/types';
 
 type DragMode = 'none' | 'assign' | 'release';
 type PoolType = 'ALGO' | 'EXTERNAL';
@@ -304,11 +304,14 @@ function findPoolUnderPointer(x: number, y: number): PoolType | null {
   }
   const right = document.getElementById('dashboard-right-column');
   if (!right) return null;
+
   const rect = right.getBoundingClientRect();
   const inside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
   if (!inside) return null;
+
   const algoEl = right.querySelector('[data-pool-drop="ALGO"]') as HTMLElement | null;
   const extEl = right.querySelector('[data-pool-drop="EXTERNAL"]') as HTMLElement | null;
+
   if (algoEl && extEl) {
     const a = algoEl.getBoundingClientRect();
     const e = extEl.getBoundingClientRect();
@@ -326,11 +329,14 @@ function findPoolUnderPointer(x: number, y: number): PoolType | null {
 /** Assign: Slot -> Topic */
 function startAssignDrag(e: PointerEvent, slotId: number) {
   if (e.button !== 0) return;
+
   dragMode.value = 'assign';
   draggingSlotId.value = slotId;
   hoverTopicId.value = null;
+
   const slot = capacityStore.slots.find((s) => s.id === slotId);
   createGhost(slot?.name ?? `Slot#${slotId}`, e.clientX, e.clientY);
+
   (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   window.addEventListener('pointermove', onAssignMove, { passive: true });
   window.addEventListener('pointerup', onAssignUp, { passive: true });
@@ -344,29 +350,83 @@ function onAssignMove(e: PointerEvent) {
 
 function onAssignUp() {
   if (dragMode.value !== 'assign') return;
+
   window.removeEventListener('pointermove', onAssignMove);
   window.removeEventListener('pointerup', onAssignUp);
   removeGhost();
+
   const slotId = draggingSlotId.value;
   const topicId = hoverTopicId.value;
+
   dragMode.value = 'none';
   draggingSlotId.value = null;
   hoverTopicId.value = null;
+
   if (!slotId || !topicId) return;
+
   bindingTopicId.value = topicId;
   bindingSlotId.value = slotId;
   addBindingOpen.value = true;
+}
+
+/** ---- Release helpers ---- */
+
+function getTopicAndBinding(bindingId: number): { topic: any; binding: any } | null {
+  for (const t of topicsStore.topics as any[]) {
+    const b = t.bindings?.find((x: any) => x.id === bindingId);
+    if (b) return { topic: t, binding: b };
+  }
+  return null;
+}
+
+/** 前端预判：是否允许释放（避免“最后一个DRI”触发后端约束失败） */
+function canReleaseBinding(bindingId: number): { ok: boolean; reason?: string } {
+  const pair = getTopicAndBinding(bindingId);
+  if (!pair) return { ok: true }; // 本地没找到，交给后端处理
+
+  const { topic, binding } = pair;
+  const bindings = (topic.bindings || []) as any[];
+
+  const isDri = !!(binding.isDri || binding.is_dri);
+  const bindingCount = bindings.length;
+
+  // 如果这个课题只有一个绑定，并且它是 DRI，则不允许释放
+  if (isDri && bindingCount <= 1) {
+    return { ok: false, reason: '该课题只剩最后一个 DRI，不能释放。请先为课题分配其他成员/DRI。' };
+  }
+
+  return { ok: true };
 }
 
 /** Release: Binding -> Pool */
 function startReleaseDrag(payload: { e: PointerEvent; binding: any }) {
   const e = payload.e;
   if (e.button !== 0) return;
+
+  // ✅ 点击跳转/点击文本时不要被拖拽吃掉（后续你把 TopicRow 的名字改成 router-link 后就生效）
+  const target = e.target as HTMLElement | null;
+  if (
+    target?.closest('a') ||              // router-link 渲染成 <a>
+    target?.closest('.dri-name') ||      // 你现在 DOM 里就是 .dri-name
+    target?.closest('[data-no-drag]')    // 预留：以后想强制禁拖的区域加这个属性
+  ) {
+    return;
+  }
+
+  // ✅ 前置规则：最后一个 DRI 不允许释放（避免后端 not null/约束失败导致回滚）
+  const check = canReleaseBinding(payload.binding.id);
+  if (!check.ok) {
+    ElMessage.warning(check.reason || '当前绑定不允许释放');
+    return;
+  }
+
   dragMode.value = 'release';
   draggingBindingId.value = payload.binding.id;
   poolHover.value = null;
+
   const label = `${payload.binding.slot?.name ?? `Slot#${payload.binding.slotId}`} (${payload.binding.percentage}%)`;
   createGhost(label, e.clientX, e.clientY);
+
   (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   window.addEventListener('pointermove', onReleaseMove, { passive: true });
   window.addEventListener('pointerup', onReleaseUp, { passive: true });
@@ -379,65 +439,108 @@ function onReleaseMove(e: PointerEvent) {
 }
 
 function findBindingInLocalState(bindingId: number): any | null {
-  for (const t of topicsStore.topics) {
-    const b = t.bindings?.find((x: any) => x.id === bindingId);
-    if (b) return { ...b, topicId: b.topicId ?? t.id, slotId: b.slotId };
-  }
-  return null;
+  const pair = getTopicAndBinding(bindingId);
+  if (!pair) return null;
+
+  const { topic, binding } = pair;
+
+  // 兼容不同字段命名
+  const slotId = binding.slotId ?? binding.slot_id ?? binding.slot?.id;
+  const topicId = binding.topicId ?? binding.topic_id ?? topic.id;
+
+  return { ...binding, topicId, slotId };
 }
 
+/** 一个 slot 可能被拆成多个 binding（同 topic 同 slot），释放时一起删 */
 function findAllBindingIdsInSameTopicAndSlot(bindingId: number): number[] {
-  for (const t of topicsStore.topics) {
-    const target = t.bindings?.find((x: any) => x.id === bindingId);
-    if (!target) continue;
-    const slotId = target.slotId;
-    return (t.bindings || []).filter((x: any) => x.slotId === slotId).map((x: any) => x.id);
-  }
-  return [];
+  const pair = getTopicAndBinding(bindingId);
+  if (!pair) return [];
+
+  const { topic, binding } = pair;
+  const slotId = binding.slotId ?? binding.slot_id ?? binding.slot?.id;
+  if (!slotId) return [];
+
+  return (topic.bindings || [])
+    .filter((x: any) => (x.slotId ?? x.slot_id ?? x.slot?.id) === slotId)
+    .map((x: any) => x.id);
 }
 
 async function onReleaseUp() {
   if (dragMode.value !== 'release') return;
+
   window.removeEventListener('pointermove', onReleaseMove);
   window.removeEventListener('pointerup', onReleaseUp);
   removeGhost();
+
   const bindingId = draggingBindingId.value;
   const pool = poolHover.value;
+
   dragMode.value = 'none';
   draggingBindingId.value = null;
   poolHover.value = null;
+
   if (!bindingId || !pool) return;
-  const binding = findBindingInLocalState(bindingId);
-  if (!binding) {
-    await capacityStore.deleteBinding(bindingId);
-    await Promise.all([topicsStore.fetchTopics(), capacityStore.fetchSlots()]);
+
+  // 再做一次兜底校验（防止拖拽过程中状态变化）
+  const check = canReleaseBinding(bindingId);
+  if (!check.ok) {
+    ElMessage.warning(check.reason || '当前绑定不允许释放');
     return;
   }
+
+  const binding = findBindingInLocalState(bindingId);
+
+  // 本地没找到，直接删 + 刷新
+  if (!binding) {
+    try {
+      await capacityStore.deleteBinding(bindingId);
+      await Promise.all([topicsStore.fetchTopics(), capacityStore.fetchSlots()]);
+      ElMessage.success('已释放');
+    } catch {
+      ElMessage.error('释放失败');
+    }
+    return;
+  }
+
   const ids = findAllBindingIdsInSameTopicAndSlot(bindingId);
   if (!ids.length) return;
+
+  // snapshot rollback
   const snapshot: any[] = [];
   {
-    const t = topicsStore.topics.find((x: any) => x.id === binding.topicId);
+    const t = (topicsStore.topics as any[]).find((x) => x.id === binding.topicId);
     if (t?.bindings?.length) {
       for (const id of ids) {
         const b = t.bindings.find((x: any) => x.id === id);
-        if (b) snapshot.push({ ...b, topicId: b.topicId ?? t.id });
+        if (b) snapshot.push({ ...b, topicId: b.topicId ?? b.topic_id ?? t.id });
       }
     }
   }
+
+  // optimistic remove
   for (const id of ids) {
     topicsStore.removeBindingLocal(id);
     capacityStore.removeBindingLocal(id);
   }
+
   try {
     await Promise.all(ids.map((id) => capacityStore.deleteBinding(id)));
     ElMessage.success('已释放');
-  } catch (e) {
+  } catch (err: any) {
+    // rollback
     for (const b of snapshot) {
+      const slotId = b.slotId ?? b.slot_id ?? b.slot?.id;
       topicsStore.addBindingLocal(b.topicId, b);
-      capacityStore.addBindingLocal(b.slotId, b);
+      capacityStore.addBindingLocal(slotId, b);
     }
-    ElMessage.error('释放失败，已回滚');
+
+    // ✅ 这里把“最后一个DRI/约束失败”提示得更明确一些
+    const msg = String(err?.response?.data?.detail || err?.message || '');
+    if (msg.includes('dri') || msg.includes('DRI') || msg.includes('not null')) {
+      ElMessage.error('释放失败：该课题必须保留 DRI 责任人（请先分配其他成员/DRI）');
+    } else {
+      ElMessage.error('释放失败，已回滚');
+    }
   }
 }
 
@@ -448,9 +551,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* ══════════════════════════════════════════════════════════════
-   DASHBOARD LAYOUT
-   ══════════════════════════════════════════════════════════════ */
 .dashboard {
   max-width: var(--content-max-width);
 }
@@ -479,9 +579,6 @@ onMounted(() => {
   gap: var(--space-5);
 }
 
-/* ══════════════════════════════════════════════════════════════
-   TOPIC SECTIONS
-   ══════════════════════════════════════════════════════════════ */
 .dashboard-main {
   display: flex;
   flex-direction: column;
@@ -552,9 +649,6 @@ onMounted(() => {
   font-size: var(--text-sm);
 }
 
-/* ══════════════════════════════════════════════════════════════
-   RIGHT SIDEBAR
-   ══════════════════════════════════════════════════════════════ */
 .dashboard-aside {
   display: flex;
   flex-direction: column;
@@ -623,9 +717,6 @@ onMounted(() => {
   color: var(--color-text-muted);
 }
 
-/* ══════════════════════════════════════════════════════════════
-   STATS PANEL
-   ══════════════════════════════════════════════════════════════ */
 .stats-body {
   padding: var(--space-4);
   display: flex;

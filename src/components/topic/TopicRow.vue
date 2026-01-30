@@ -22,12 +22,7 @@
 
       <!-- Stage Timeline (演进课题才显示) -->
       <div v-if="!hideStages && !isUncertainty" class="topic-stages" @click.stop>
-        <StageTimeline
-          :stages="stages"
-          :stage-states="stageStates"
-          :current-stage-id="currentStageId"
-          compact
-        />
+        <StageTimeline :stages="stages" :stage-states="stageStates" :current-stage-id="currentStageId" compact />
       </div>
 
       <!-- Stage Flow (不确定性课题) -->
@@ -52,33 +47,68 @@
       </div>
 
       <!-- Action -->
-      <el-button size="small" class="topic-action" @click.stop="emit('open', props.topic)">
-        打开
-      </el-button>
+      <el-button size="small" class="topic-action" @click.stop="emit('open', props.topic)">打开</el-button>
     </div>
 
     <!-- Bindings Row -->
     <div v-if="sortedBindings.length" class="topic-bindings" @click.stop>
-      <!-- DRI First (特殊权重) -->
-      <div
-        v-for="b in sortedBindings"
-        :key="b.id"
-        class="binding-item"
-        @pointerdown.stop.prevent="emit('binding-pointerdown', { e: $event, binding: b })"
-      >
-        <!-- DRI Binding -->
-        <div v-if="b.isDri" class="dri-chip">
+      <div v-for="b in sortedBindings" :key="b.id" class="binding-item">
+        <!-- DRI -->
+        <div
+          v-if="b.isDri"
+          class="dri-chip"
+          title="拖动释放"
+          @pointerdown.stop.prevent="emit('binding-pointerdown', { e: $event, binding: b })"
+        >
           <span class="dri-dot"></span>
-          <span class="dri-name">{{ b.slot?.name || '未知' }}</span>
+
+          <!-- 名字可点进 profile：必须 stop 掉 pointerdown，避免触发释放拖拽 -->
+          <router-link
+            v-if="getBindingUserId(b)"
+            class="dri-name"
+            :to="`/profile/user/${getBindingUserId(b)}`"
+            @click.stop
+            @mousedown.stop
+            @pointerdown.stop
+            @pointerup.stop
+          >
+            {{ getBindingUserName(b) }}
+          </router-link>
+
+          <!-- 没有 userId 就展示灰态文本 -->
+          <span
+            v-else
+            class="dri-name dri-name--disabled"
+            @click.stop
+            @mousedown.stop
+            @pointerdown.stop
+            @pointerup.stop
+            title="该绑定没有关联到用户"
+          >
+            {{ getBindingUserName(b) }}
+          </span>
+
           <span class="dri-tag">DRI</span>
         </div>
+
         <!-- Internal Member -->
-        <div v-else-if="b.slot?.type !== 'EXTERNAL'" class="member-chip member-chip--internal">
+        <div
+          v-else-if="b.slot?.type !== 'EXTERNAL'"
+          class="member-chip member-chip--internal"
+          title="拖动释放"
+          @pointerdown.stop.prevent="emit('binding-pointerdown', { e: $event, binding: b })"
+        >
           <span class="member-dot"></span>
           <span class="member-name">{{ b.slot?.name || '未知' }}</span>
         </div>
-        <!-- External Member (低权重) -->
-        <div v-else class="member-chip member-chip--external">
+
+        <!-- External Member -->
+        <div
+          v-else
+          class="member-chip member-chip--external"
+          title="拖动释放"
+          @pointerdown.stop.prevent="emit('binding-pointerdown', { e: $event, binding: b })"
+        >
           <span class="member-dot"></span>
           <span class="member-name">{{ b.slot?.name || '未知' }}</span>
         </div>
@@ -89,11 +119,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { Topic, Binding } from '@/types';
+import type { Topic } from '@/types';
 import StageTimeline from './StageTimeline.vue';
-import { useCapacityStore } from '@/stores/capacity';
 
-const props = defineProps<{ 
+const props = defineProps<{
   topic: Topic;
   hideStages?: boolean;
 }>();
@@ -103,16 +132,18 @@ const emit = defineEmits<{
   (e: 'binding-pointerdown', payload: { e: PointerEvent; binding: any }): void;
 }>();
 
-const capacityStore = useCapacityStore();
-
 const isUncertainty = computed(() => props.topic.type === 'UNCERTAINTY');
 
 const resultLabel = computed(() => {
   switch (props.topic.result) {
-    case 'SUCCESS': return '已完成';
-    case 'UNSOLVABLE': return '无法解决';
-    case 'OPEN': return '进行中';
-    default: return props.topic.result;
+    case 'SUCCESS':
+      return '已完成';
+    case 'UNSOLVABLE':
+      return '无法解决';
+    case 'OPEN':
+      return '进行中';
+    default:
+      return props.topic.result as any;
   }
 });
 
@@ -139,24 +170,51 @@ const currentStageId = computed(() => {
 const stageInstancesNormalized = computed(() => {
   const t: any = props.topic;
   const instances = t?.stageInstances ?? t?.stage_instances ?? [];
-  return instances.map((s: any) => ({
-    id: s.id,
-    name: s.name,
-    status: s.status,
-    order: s.order,
-  })).sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+  return instances
+    .map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      status: s.status,
+      order: s.order,
+    }))
+    .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
 });
+
+/**
+ * 统一取 userId / userName：兼容所有字段命名
+ */
+function getBindingUserId(b: any): number | null {
+  const id =
+    b?.user?.id ??
+    b?.userId ??
+    b?.user_id ??
+    b?.slot?.user?.id ??
+    b?.slot?.userId ??
+    b?.slot?.user_id ??
+    null;
+
+  const n = Number(id);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function getBindingUserName(b: any): string {
+  return b?.user?.name ?? b?.slot?.user?.name ?? b?.slot?.name ?? '未知';
+}
 
 const sortedBindings = computed(() => {
   const t: any = props.topic;
   const arr = (t?.bindings ?? t?.capacity_bindings ?? []) as any[];
+
+  // 同一个 slot 只显示一次
   const seen = new Set<number>();
   const out: any[] = [];
+
   for (const b of arr) {
     const sid = Number(b.slotId ?? b.slot_id ?? b.slot?.id);
     if (!sid) continue;
     if (seen.has(sid)) continue;
     seen.add(sid);
+
     out.push({
       ...b,
       slotId: b.slotId ?? b.slot_id ?? b.slot?.id,
@@ -164,6 +222,7 @@ const sortedBindings = computed(() => {
       isDri: b.isDri ?? b.is_dri ?? false,
     });
   }
+
   return out.sort((a, b) => {
     if (a.isDri && !b.isDri) return -1;
     if (!a.isDri && b.isDri) return 1;
@@ -235,7 +294,7 @@ const sortedBindings = computed(() => {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   PRIORITY TAG - 克制的优先级
+   PRIORITY TAG
    ══════════════════════════════════════════════════════════════ */
 .priority-tag {
   display: inline-flex;
@@ -363,7 +422,7 @@ const sortedBindings = computed(() => {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   BINDINGS ROW - DRI 与成员
+   BINDINGS
    ══════════════════════════════════════════════════════════════ */
 .topic-bindings {
   display: flex;
@@ -375,15 +434,20 @@ const sortedBindings = computed(() => {
 }
 
 .binding-item {
-  cursor: grab;
   user-select: none;
 }
 
-.binding-item:active {
+/* 让“可拖拽释放”的 chip 有 grab 手势 */
+.dri-chip,
+.member-chip {
+  cursor: grab;
+}
+.dri-chip:active,
+.member-chip:active {
   cursor: grabbing;
 }
 
-/* DRI Chip - 最高视觉权重 */
+/* DRI Chip */
 .dri-chip {
   display: inline-flex;
   align-items: center;
@@ -410,6 +474,18 @@ const sortedBindings = computed(() => {
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   color: var(--color-dri);
+  text-decoration: none;
+  cursor: pointer; /* 覆盖 grab，让用户知道能点 */
+}
+
+.dri-name:hover {
+  text-decoration: underline;
+}
+
+.dri-name--disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  text-decoration: none;
 }
 
 .dri-tag {
@@ -422,7 +498,7 @@ const sortedBindings = computed(() => {
   letter-spacing: 0.03em;
 }
 
-/* Member Chip - 内部 */
+/* Member Chip */
 .member-chip {
   display: inline-flex;
   align-items: center;
@@ -447,7 +523,6 @@ const sortedBindings = computed(() => {
   background: var(--color-neutral-500);
 }
 
-/* Member Chip - 外协（低权重，虚线边框） */
 .member-chip--external {
   background: transparent;
   color: var(--color-member-external);

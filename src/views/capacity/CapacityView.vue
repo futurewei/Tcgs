@@ -21,7 +21,6 @@
             <div class="slot-header">
               <div class="slot-info">
                 <SlotChip :slot="slot" :clickable="true" />
-                <router-link v-if="slot.user" :to="`/profile/user/${slot.user.id}`" class="slot-user">{{ slot.user.name }}</router-link>
               </div>
               <el-dropdown v-if="authStore.isAdmin" trigger="click">
                 <el-button size="small" text>
@@ -75,7 +74,6 @@
             <div class="slot-header">
               <div class="slot-info">
                 <SlotChip :slot="slot" :clickable="true" />
-                <router-link v-if="slot.user" :to="`/profile/user/${slot.user.id}`" class="slot-user external">{{ slot.user.name }}</router-link>
               </div>
               <el-dropdown v-if="authStore.isAdmin" trigger="click">
                 <el-button size="small" text>

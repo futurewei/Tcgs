@@ -19,7 +19,7 @@
   --color-primary-200: #D3DAE3;
   --color-primary-300: #A8B5C4;
   --color-primary-400: #7A8FA6;
-  --color-primary-500: #526A83;  /* 主色 */
+  --color-primary-500: #4B647E;  /* 主色 */
   --color-primary-600: #425569;
   --color-primary-700: #354454;
   --color-primary-800: #2A3642;
@@ -48,7 +48,7 @@
   --color-neutral-900: #111827;
 
   /* Background */
-  --color-bg-base: var(--color-neutral-50);
+  --color-bg-base: var(--color-neutral-25);
   --color-bg-elevated: var(--color-neutral-0);
   --color-bg-muted: var(--color-neutral-25);
   --color-bg-subtle: var(--color-neutral-100);
@@ -56,7 +56,7 @@
   
   /* Surface（卡片/面板） */
   --color-surface-primary: var(--color-neutral-0);
-  --color-surface-secondary: var(--color-neutral-50);
+  --color-surface-secondary: var(--color-neutral-25);
   --color-surface-hover: var(--color-neutral-100);
   --color-surface-active: var(--color-neutral-150);
 

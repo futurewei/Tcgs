@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from ..models.capacity import SlotType
@@ -6,21 +6,40 @@ from .user import UserResponse
 
 
 class BindingBase(BaseModel):
-    topic_id: int
-    slot_id: Optional[int] = None  # 向后兼容
-    user_id: Optional[int] = None  # 新字段：直接用 user_id
+    # 兼容 topicId / topic_id
+    topic_id: int = Field(..., alias="topicId")
+
+    # 兼容 slotId / slot_id（旧链路）
+    slot_id: Optional[int] = Field(None, alias="slotId")
+
+    # 兼容 userId / user_id（新链路）
+    user_id: Optional[int] = Field(None, alias="userId")
+
     percentage: int = 25
-    is_forced: bool = False
+
+    # 兼容 isForced / is_forced
+    is_forced: bool = Field(False, alias="isForced")
+
+    class Config:
+        # 允许用字段名或别名来填充
+        allow_population_by_field_name = True
+        # pydantic v2 / v1 都尽量兼容
+        populate_by_name = True
 
 
 class BindingCreate(BindingBase):
-    is_dri: Optional[bool] = None  # If True, this binding becomes the DRI
+    # 兼容 isDri / is_dri
+    is_dri: Optional[bool] = Field(None, alias="isDri")
 
 
 class BindingUpdate(BaseModel):
     percentage: Optional[int] = None
-    is_forced: Optional[bool] = None
-    is_dri: Optional[bool] = None  # Can change DRI status
+    is_forced: Optional[bool] = Field(None, alias="isForced")
+    is_dri: Optional[bool] = Field(None, alias="isDri")
+
+    class Config:
+        allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class BindingInSlotResponse(BaseModel):
@@ -66,7 +85,11 @@ class SlotResponse(SlotBase):
 class BindingWithSlotResponse(BaseModel):
     id: int
     topic_id: int
-    slot_id: int
+
+    # ✅ 放宽：防止某些历史数据/异常返回炸掉
+    slot_id: Optional[int] = None
+
+    user_id: Optional[int] = None
     percentage: int
     is_forced: bool
     is_dri: bool = False
