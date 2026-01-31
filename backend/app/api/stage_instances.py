@@ -165,9 +165,8 @@ def create_stage_instance(
         created_by_id=current_user.id
     )
     db.add(stage)
-    db.commit()
-    db.refresh(stage)
-    
+    db.flush()  # 获取 stage.id，但不 commit
+
     # 审计日志
     db.add(AuditLog(
         user_id=current_user.id,
@@ -177,6 +176,7 @@ def create_stage_instance(
         details={"topic_id": topic_id, "name": data.name}
     ))
     db.commit()
+    db.refresh(stage)
     
     return _serialize_stage_instance(stage, db=db)
 
@@ -621,9 +621,8 @@ def copy_stage(
         created_by_id=current_user.id
     )
     db.add(new_stage)
-    db.commit()
-    db.refresh(new_stage)
-    
+    db.flush()  # 获取 new_stage.id
+
     # 审计日志
     db.add(AuditLog(
         user_id=current_user.id,
@@ -634,6 +633,8 @@ def copy_stage(
     ))
     db.commit()
     
+    db.refresh(new_stage)
+
     return _serialize_stage_instance(new_stage, db=db)
 
 
@@ -814,6 +815,34 @@ def add_contributor(
 # ============ Helpers ============
 
 def _serialize_stage_instance(stage: TopicStageInstance, include_tech_points: bool = False, db: Session = None) -> dict:
+    """Serialize a stage instance, with resilient handling of relationship fields.
+
+    In some cases (e.g., after commit/refresh, or when objects are detached/expired),
+    accessing relationship attributes like stage.created_by may raise.
+    We defensively resolve createdBy/completedBy using either the relationship or a DB lookup.
+    """
+    # -------- safe relationship resolution --------
+    created_by_data = None
+    completed_by_data = None
+
+    try:
+        if getattr(stage, 'created_by', None):
+            created_by_data = {"id": stage.created_by.id, "name": stage.created_by.name}
+    except Exception:
+        if db and getattr(stage, 'created_by_id', None):
+            user = db.query(User).filter(User.id == stage.created_by_id).first()
+            if user:
+                created_by_data = {"id": user.id, "name": user.name}
+
+    try:
+        if getattr(stage, 'completed_by', None):
+            completed_by_data = {"id": stage.completed_by.id, "name": stage.completed_by.name}
+    except Exception:
+        if db and getattr(stage, 'completed_by_id', None):
+            user = db.query(User).filter(User.id == stage.completed_by_id).first()
+            if user:
+                completed_by_data = {"id": user.id, "name": user.name}
+
     result = {
         "id": stage.id,
         "topicId": stage.topic_id,
@@ -827,10 +856,7 @@ def _serialize_stage_instance(stage: TopicStageInstance, include_tech_points: bo
         "startedAt": stage.started_at.isoformat() if stage.started_at else None,
         "completedAt": stage.completed_at.isoformat() if stage.completed_at else None,
         "completedById": stage.completed_by_id,
-        "completedBy": {
-            "id": stage.completed_by.id,
-            "name": stage.completed_by.name
-        } if stage.completed_by else None,
+        "completedBy": completed_by_data,
         "completionNote": stage.completion_note,
         "remainingIssues": stage.remaining_issues,
         "objective": stage.objective,
@@ -840,14 +866,13 @@ def _serialize_stage_instance(stage: TopicStageInstance, include_tech_points: bo
         "conclusion": stage.conclusion,
         "clonedFromId": stage.cloned_from_id,
         "createdAt": stage.created_at.isoformat() if stage.created_at else None,
-        "createdBy": {
-            "id": stage.created_by.id,
-            "name": stage.created_by.name
-        } if stage.created_by else None
+        "createdBy": created_by_data,
     }
-    
+
     if include_tech_points:
         result["techPoints"] = [_serialize_tech_point(p, db) for p in stage.tech_points]
+        # deliverables
+        from ..models.deliverable import StageDeliverable  # noqa: F401
         result["deliverables"] = [
             {
                 "id": d.id,
@@ -858,11 +883,11 @@ def _serialize_stage_instance(stage: TopicStageInstance, include_tech_points: bo
                 "description": d.description,
                 "createdAt": d.created_at.isoformat() if d.created_at else None,
                 "createdBy": {"id": d.created_by.id, "name": d.created_by.name} if d.created_by else None,
-                "techPointId": d.tech_point_id
+                "techPointId": d.tech_point_id,
             }
             for d in stage.deliverables
         ]
-    
+
     return result
 
 

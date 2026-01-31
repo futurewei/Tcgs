@@ -14,16 +14,16 @@
      ══════════════════════════════════════════════════════════════ */
   
   /* Primary - 工程蓝灰（核心操作色） */
-  --color-primary-50: #F5F7FA;
-  --color-primary-100: #E8ECF1;
-  --color-primary-200: #D3DAE3;
-  --color-primary-300: #A8B5C4;
-  --color-primary-400: #7A8FA6;
-  --color-primary-500: #4B647E;  /* 主色 */
-  --color-primary-600: #425569;
-  --color-primary-700: #354454;
-  --color-primary-800: #2A3642;
-  --color-primary-900: #1F272F;
+  --color-primary-50: #EFF6FF;
+  --color-primary-100: #DBEAFE;
+  --color-primary-200: #BFDBFE;
+  --color-primary-300: #93C5FD;
+  --color-primary-400: #60A5FA;
+  --color-primary-500: #3B82F6;  /* 主色 */
+  --color-primary-600: #2563EB;
+  --color-primary-700: #1D4ED8;
+  --color-primary-800: #1E40AF;
+  --color-primary-900: #1E3A8A;
   
   /* 语义化主色别名 */
   --color-primary: var(--color-primary-500);
@@ -80,37 +80,37 @@
      ══════════════════════════════════════════════════════════════ */
   
   /* Success - 沉稳绿 */
-  --color-success-50: #F0F5F1;
-  --color-success-100: #DCE8DE;
-  --color-success-500: #4A7C59;
-  --color-success-600: #3D6649;
+  --color-success-50: #ECFDF5;
+  --color-success-100: #D1FAE5;
+  --color-success-500: #10B981;
+  --color-success-600: #059669;
   --color-success: var(--color-success-500);
   --color-success-light: var(--color-success-50);
   --color-success-bg: var(--color-success-100);
 
   /* Warning - 沉稳琥珀 */
-  --color-warning-50: #FBF7F0;
-  --color-warning-100: #F5EBD8;
-  --color-warning-500: #9A7B3C;
-  --color-warning-600: #7D6331;
+  --color-warning-50: #FFFBEB;
+  --color-warning-100: #FEF3C7;
+  --color-warning-500: #F59E0B;  /* 明亮橙 */  
+  --color-warning-600: #D97706;
   --color-warning: var(--color-warning-500);
   --color-warning-light: var(--color-warning-50);
   --color-warning-bg: var(--color-warning-100);
 
   /* Danger/Risk - 沉稳红 */
-  --color-danger-50: #FAF0EF;
-  --color-danger-100: #F2DCD9;
-  --color-danger-500: #9C5651;
-  --color-danger-600: #7F4642;
+  --color-danger-50: #FEF2F2; 
+  --color-danger-100: #FEE2E2;
+  --color-danger-500: #EF4444;  /* 明亮红 */ 
+  --color-danger-600: #DC2626;
   --color-danger: var(--color-danger-500);
   --color-danger-light: var(--color-danger-50);
   --color-danger-bg: var(--color-danger-100);
 
   /* Info - 冷蓝灰 */
-  --color-info-50: #F3F6F9;
-  --color-info-100: #E1E8EF;
-  --color-info-500: #5A7A92;
-  --color-info-600: #496275;
+  --color-info-50: #EFF6FF;
+  --color-info-100: #DBEAFE;
+  --color-info-500: #3B82F6;  /* 明亮蓝 */ 
+  --color-info-600: #2563EB;
   --color-info: var(--color-info-500);
   --color-info-light: var(--color-info-50);
   --color-info-bg: var(--color-info-100);
@@ -125,10 +125,10 @@
   --color-dri-border: var(--color-primary-200);
 
   /* Priority */
-  --color-priority-p0: #8B5C5C;
-  --color-priority-p0-bg: #F5EEEE;
-  --color-priority-p1: #8B7B5C;
-  --color-priority-p1-bg: #F5F2EE;
+  --color-priority-p0: #DC2626;    /* 明亮红 */
+  --color-priority-p0-bg: #FEF2F2;
+  --color-priority-p1:  #D97706;    /* 明亮橙 */ 
+  --color-priority-p1-bg: #FFFBEB;
   --color-priority-p2: var(--color-neutral-500);
   --color-priority-p2-bg: var(--color-neutral-100);
 

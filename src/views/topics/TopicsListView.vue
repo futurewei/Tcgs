@@ -22,25 +22,25 @@
         </template>
       </el-input>
 
-      <el-select v-model="filters.type" placeholder="类型" clearable @change="fetchTopics">
+      <el-select v-model="filters.type" class="filter-item" placeholder="类型" clearable @change="fetchTopics">
         <el-option label="不确定性" value="UNCERTAINTY" />
         <el-option label="演进" value="EVOLUTION" />
       </el-select>
 
-      <el-select v-model="filters.urgency" placeholder="优先级" clearable @change="fetchTopics">
+      <el-select v-model="filters.urgency" class="filter-item" placeholder="优先级" clearable @change="fetchTopics">
         <el-option label="P0 - 紧急" value="P0" />
         <el-option label="P1 - 高" value="P1" />
         <el-option label="P2 - 中" value="P2" />
         <el-option label="P3 - 低" value="P3" />
       </el-select>
 
-      <el-select v-model="filters.result" placeholder="结果" clearable @change="fetchTopics">
+      <el-select v-model="filters.result" class="filter-item" placeholder="结果" clearable @change="fetchTopics">
         <el-option label="进行中" value="OPEN" />
         <el-option label="已完成" value="SUCCESS" />
         <el-option label="无法解决" value="UNSOLVABLE" />
       </el-select>
 
-      <el-button @click="resetFilters">重置</el-button>
+      <el-button class="filter-reset" @click="resetFilters">重置</el-button>
     </div>
 
     <!-- Topics List -->
@@ -56,13 +56,24 @@
           <div class="topic-card-content">
             <div class="topic-card-header">
               <h3 class="topic-card-title">{{ topic.title }}</h3>
-              <span :class="['priority-tag', `priority-tag--${topic.urgency?.toLowerCase()}`]">{{ topic.urgency }}</span>
+
+              <span
+                :class="['priority-tag', `priority-tag--${(topic.urgency || '').toLowerCase()}`]"
+              >
+                {{ topic.urgency }}
+              </span>
+
               <span class="type-tag">{{ getTypeLabel(topic.type) }}</span>
-              <span :class="['result-tag', `result-tag--${topic.result?.toLowerCase()}`]">{{ getResultLabel(topic.result) }}</span>
+
+              <span
+                :class="['result-tag', `result-tag--${(topic.result || '').toLowerCase()}`]"
+              >
+                {{ getResultLabel(topic.result) }}
+              </span>
             </div>
-            
+
             <p class="topic-card-meta">
-              ID: {{ topic.id }}
+              <span>ID: {{ topic.id }}</span>
               <span v-if="getRequesterName(topic)">需求方: {{ getRequesterName(topic) }}</span>
             </p>
 
@@ -80,6 +91,7 @@
               </template>
               <span v-else class="empty-hint">暂无阶段</span>
             </div>
+
             <StageTimeline
               v-else
               :stages="topic.template?.stages || []"
@@ -101,10 +113,13 @@
                 <div class="dri-avatar">{{ getInitials(getDriBinding(topic)?.slot?.name) }}</div>
                 <div class="dri-info">
                   <p class="dri-name">{{ getDriBinding(topic)?.slot?.name }}</p>
-                  <p class="dri-type">{{ getDriBinding(topic)?.slot?.type === 'EXTERNAL' ? '协调人力' : '自有人力' }}</p>
+                  <p class="dri-type">
+                    {{ getDriBinding(topic)?.slot?.type === 'EXTERNAL' ? '协调人力' : '自有人力' }}
+                  </p>
                 </div>
               </div>
             </router-link>
+
             <div v-else class="dri-card dri-card--empty">
               <p class="dri-card-label">算法责任人</p>
               <p class="dri-empty-text">暂未分配</p>
@@ -121,11 +136,12 @@
               :key="b.id"
               :to="getSlotProfileLink(b.slot)"
               class="team-avatar"
-              :title="b.slot?.name + ' - 点击查看档案'"
+              :title="(b.slot?.name || '') + ' - 点击查看档案'"
               @click.stop
             >
               {{ getInitials(b.slot?.name) }}
             </router-link>
+
             <div v-if="getTeamBindings(topic).length > 6" class="team-avatar team-avatar--more">
               +{{ getTeamBindings(topic).length - 6 }}
             </div>
@@ -136,7 +152,7 @@
       <!-- Empty State -->
       <div v-if="!topicsStore.loading && topicsStore.topics.length === 0" class="empty-state">
         <p class="empty-title">暂无课题</p>
-        <p class="empty-hint">点击"创建课题"开始</p>
+        <p class="empty-hint">点击“创建课题”开始</p>
       </div>
 
       <!-- Loading -->
@@ -228,9 +244,12 @@ function getTypeLabel(type: string) {
 
 function getResultLabel(result: string) {
   switch (result) {
-    case 'SUCCESS': return '已完成';
-    case 'UNSOLVABLE': return '无法解决';
-    default: return '进行中';
+    case 'SUCCESS':
+      return '已完成';
+    case 'UNSOLVABLE':
+      return '无法解决';
+    default:
+      return '进行中';
   }
 }
 
@@ -250,11 +269,14 @@ function getStageInstances(topic: any): any[] {
     .sort((a: any, b: any) => a.order - b.order);
 }
 
+/**
+ * ✅ 关键修复：只认真的 DRI，不要 fallback 到 bindings[0]
+ * 否则会出现“我没选王五，最后 DRI 变王五”的假象
+ */
 function getDriBinding(topic: any): Binding | null {
   const bindings = topic.bindings || [];
   const dri = bindings.find((b: any) => b.isDri || b.is_dri);
-  if (dri) return normalizeBinding(dri);
-  return bindings.length ? normalizeBinding(bindings[0]) : null;
+  return dri ? normalizeBinding(dri) : null;
 }
 
 function getTeamBindings(topic: any): Binding[] {
@@ -267,11 +289,13 @@ function normalizeBinding(b: any): Binding {
     ...b,
     slotId: b.slotId ?? b.slot_id,
     isDri: b.isDri ?? b.is_dri ?? false,
-    slot: b.slot ? {
-      ...b.slot,
-      userId: b.slot.userId ?? b.slot.user_id,
-      totalCapacity: b.slot.totalCapacity ?? b.slot.total_capacity,
-    } : null,
+    slot: b.slot
+      ? {
+          ...b.slot,
+          userId: b.slot.userId ?? b.slot.user_id,
+          totalCapacity: b.slot.totalCapacity ?? b.slot.total_capacity,
+        }
+      : null,
   };
 }
 
@@ -287,9 +311,8 @@ onMounted(() => {
 });
 </script>
 
-
 <style scoped>
-.topics-list-view {
+.topics-page {
   padding: var(--space-6);
   max-width: 1200px;
   margin: 0 auto;
@@ -308,6 +331,7 @@ onMounted(() => {
   color: var(--color-text-primary);
 }
 
+/* ✅ 修复：搜索框被挤压 */
 .filter-bar {
   display: flex;
   align-items: center;
@@ -319,12 +343,20 @@ onMounted(() => {
   border-radius: var(--radius-lg);
 }
 
-.search-input {
-  flex: 1;
-  max-width: 320px;
+.filter-search {
+  flex: 1 1 360px;
+  min-width: 320px;
 }
 
-.topics-grid {
+.filter-item {
+  width: 160px;
+}
+
+.filter-reset {
+  flex: 0 0 auto;
+}
+
+.topics-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -344,176 +376,136 @@ onMounted(() => {
   box-shadow: var(--shadow-sm);
 }
 
-.topic-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
-}
-
-.topic-title-area {
-  flex: 1;
-  min-width: 0;
-}
-
-.topic-title {
-  font-size: var(--text-base);
-  font-weight: var(--font-semibold);
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-2);
-  line-height: 1.4;
-}
-
-.topic-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  font-size: var(--text-xs);
-  color: var(--color-text-tertiary);
-}
-
-.topic-badges {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
-
-.type-badge {
-  font-size: var(--text-xs);
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  font-weight: var(--font-medium);
-}
-
-.type-badge.uncertainty {
-  background: var(--color-info-bg);
-  color: var(--color-info-text);
-}
-
-.type-badge.evolution {
-  background: var(--color-stage-active-bg);
-  color: var(--color-stage-active-text);
-}
-
-.priority-badge {
-  font-size: var(--text-xs);
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  font-weight: var(--font-semibold);
-}
-
-.priority-badge.p0 {
-  background: var(--color-priority-p0-bg);
-  color: var(--color-priority-p0);
-}
-
-.priority-badge.p1 {
-  background: var(--color-priority-p1-bg);
-  color: var(--color-priority-p1);
-}
-
-.priority-badge.p2 {
-  background: var(--color-priority-p2-bg);
-  color: var(--color-priority-p2);
-}
-
-.result-badge {
-  font-size: var(--text-xs);
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-}
-
-.result-badge.success {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-}
-
-.result-badge.unsolvable {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-}
-
-.result-badge.in-progress {
-  background: var(--color-neutral-100);
-  color: var(--color-text-secondary);
-}
-
-.topic-body {
+.topic-card-main {
   display: grid;
-  grid-template-columns: 1fr 200px;
+  grid-template-columns: 1fr 220px;
   gap: var(--space-6);
   align-items: start;
 }
 
-.topic-content {
+.topic-card-content {
   min-width: 0;
 }
 
-.stage-section {
-  margin-bottom: var(--space-4);
-}
-
-.stage-label {
-  font-size: var(--text-xs);
-  color: var(--color-text-tertiary);
-  margin-bottom: var(--space-2);
-}
-
-.team-section {
+.topic-card-header {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
 }
 
-.team-avatars {
+.topic-card-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+  margin-right: var(--space-2);
+}
+
+.topic-card-meta {
   display: flex;
-  align-items: center;
-}
-
-.team-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--color-neutral-100);
-  border: 2px solid var(--color-bg-elevated);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-xs);
-  font-weight: var(--font-medium);
-  color: var(--color-text-secondary);
-  margin-left: -8px;
-}
-
-.team-avatar:first-child {
-  margin-left: 0;
-}
-
-.team-count {
+  gap: var(--space-4);
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
-  margin-left: var(--space-2);
+  margin: 0 0 var(--space-3) 0;
+}
+
+.priority-tag,
+.type-tag,
+.result-tag {
+  font-size: var(--text-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-secondary);
+  background: var(--color-neutral-50);
+}
+
+.priority-tag--p0 { background: var(--color-danger-bg); color: var(--color-danger); border-color: transparent; }
+.priority-tag--p1 { background: var(--color-warning-bg); color: var(--color-warning); border-color: transparent; }
+.priority-tag--p2 { background: var(--color-info-bg); color: var(--color-info-text); border-color: transparent; }
+.priority-tag--p3 { background: var(--color-neutral-100); color: var(--color-text-secondary); border-color: transparent; }
+
+.result-tag--success { background: var(--color-success-bg); color: var(--color-success); border-color: transparent; }
+.result-tag--unsolvable { background: var(--color-danger-bg); color: var(--color-danger); border-color: transparent; }
+.result-tag--open { background: var(--color-neutral-100); color: var(--color-text-secondary); border-color: transparent; }
+
+.topic-stages {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.stage-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  background: var(--color-neutral-100);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-default);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stage-chip--active {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+  border-color: transparent;
+}
+
+.stage-chip--done {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border-color: transparent;
+}
+
+.stage-arrow {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+}
+
+.stage-icon {
+  font-weight: 700;
+}
+
+.stage-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  display: inline-block;
+}
+
+.dri-card-wrapper {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .dri-card {
+  width: 220px;
   background: var(--color-dri-bg);
   border: 1px solid var(--color-dri-border);
   border-radius: var(--radius-md);
   padding: var(--space-3);
+  text-decoration: none;
 }
 
-.dri-label {
+.dri-card--empty {
+  background: var(--color-neutral-50);
+  border-color: var(--color-border-default);
+}
+
+.dri-card-label {
   font-size: 10px;
   font-weight: var(--font-semibold);
-  color: var(--color-dri);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: var(--space-2);
+  color: var(--color-text-tertiary);
+  margin: 0 0 var(--space-2) 0;
 }
 
-.dri-info {
+.dri-card-content {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -536,15 +528,63 @@ onMounted(() => {
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
   color: var(--color-text-primary);
+  margin: 0;
 }
 
-.dri-link {
-  color: inherit;
+.dri-type {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+.dri-empty-text {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+.team-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.team-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.team-avatars {
+  display: flex;
+  align-items: center;
+}
+
+.team-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-neutral-100);
+  border: 2px solid var(--color-bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  margin-left: -8px;
   text-decoration: none;
 }
 
-.dri-link:hover .dri-name {
-  color: var(--color-primary);
+.team-avatar:first-child {
+  margin-left: 0;
+}
+
+.team-avatar--more {
+  margin-left: 6px;
+  border-radius: 999px;
+  width: auto;
+  padding: 0 10px;
 }
 
 .empty-state {
@@ -559,3 +599,4 @@ onMounted(() => {
   margin-top: var(--space-6);
 }
 </style>
+

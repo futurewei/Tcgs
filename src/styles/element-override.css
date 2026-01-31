@@ -34,8 +34,10 @@
 .el-button--primary {
   --el-button-bg-color: var(--color-primary);
   --el-button-border-color: var(--color-primary);
+  --el-button-text-color: #FFFFFF;  /* 添加这行 */
   --el-button-hover-bg-color: var(--color-primary-hover);
   --el-button-hover-border-color: var(--color-primary-hover);
+  --el-button-hover-text-color: #FFFFFF;  /* 添加这行 */ 
   --el-button-active-bg-color: var(--color-primary-active);
   --el-button-active-border-color: var(--color-primary-active);
 }

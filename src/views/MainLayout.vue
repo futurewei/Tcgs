@@ -325,6 +325,7 @@ function handleLogout() {
   padding: 0 var(--space-3);
   background: var(--color-primary) !important;
   border-color: var(--color-primary) !important;
+  color: #FFFFFF !important;  /* 添加这行 */
   border-radius: var(--radius-md) !important;
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
@@ -333,6 +334,7 @@ function handleLogout() {
 .tcgs-btn-create:hover {
   background: var(--color-primary-hover) !important;
   border-color: var(--color-primary-hover) !important;
+  color: #FFFFFF !important;  /* 添加这行 */ 
 }
 
 /* User Menu */

@@ -841,8 +841,10 @@ async function createStage() {
     showAddStage.value = false;
     newStageForm.value = { name: '', description: '', insertAfterId: null };
     ElMessage.success('阶段创建成功');
-  } catch {
-    ElMessage.error('创建失败');
+    await refreshTopic();
+} catch (err: any) {
+      console.error('Create stage error:', err);
+      ElMessage.error(err?.response?.data?.detail || err?.message || '创建失败');  
   }
 }
 
