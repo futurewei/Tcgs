@@ -88,13 +88,15 @@ async function fetchLogs() {
     const response = await insightsApi.getAuditLogs(pagination.page, pagination.pageSize);
     logs.value = response.items;
     pagination.total = response.total;
-  } catch (error) {
-    // Mock data
-    logs.value = [
-      { id: 1, action: 'TOPIC_CREATE', entityType: 'Topic', entityId: 15, oldValue: undefined, newValue: JSON.stringify({ title: '新算法研究' }), userId: 1, user: { id: 1, email: 'admin@tcgs.local', name: '管理员', role: 'ADMIN', createdAt: '', updatedAt: '' }, createdAt: new Date().toISOString() },
-      { id: 2, action: 'DRI_CHANGE', entityType: 'Topic', entityId: 12, oldValue: '张工', newValue: '王工', userId: 1, user: { id: 1, email: 'admin@tcgs.local', name: '管理员', role: 'ADMIN', createdAt: '', updatedAt: '' }, createdAt: new Date(Date.now() - 3600000).toISOString() },
-    ];
-    pagination.total = 2;
+  } catch (error : any) {
+  	console.error('fetch audit logs failed:', error);
+  	logs.value = [];
+  	pagination.total = 0;
+  	ElMessage.error(
+    		error?.response?.data?.detail ||
+    		error?.response?.statusText ||
+    	'获取操作日志失败（请检查 /audit-logs 接口是否可用）'
+  );  
   } finally {
     loading.value = false;
   }

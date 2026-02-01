@@ -32,7 +32,7 @@ export const insightsApi = {
   },
 
   getAuditLogs: async (page = 1, pageSize = 50): Promise<PaginatedResponse<AuditLog>> => {
-    const response = await client.get<PaginatedResponse<AuditLog>>('/audit-logs', {
+    const response = await client.get<PaginatedResponse<AuditLog>>('/insights/audit-logs', {
       params: { page, pageSize }
     });
     return response.data;
