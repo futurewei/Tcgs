@@ -477,23 +477,35 @@ def move_stage(
         stage.completed_by_id = current_user.id
         stage.completion_note = data.completion_note
         stage.remaining_issues = data.remaining_issues
-        
-        # 如果是终止阶段，检查是否允许结项
-        if stage.is_terminal and stage.allow_result:
-            # 可以在这里触发结项流程
-            pass
-        
-        # 激活下一阶段
-        if current_idx + 1 < len(all_stages):
-            next_stage = all_stages[current_idx + 1]
-            if next_stage.status == StageInstanceStatus.PENDING:
-                next_stage.status = StageInstanceStatus.ACTIVE
-                next_stage.started_at = datetime.utcnow()
-            # 更新课题的当前阶段
-            topic.current_stage_instance_id = next_stage.id
-        
+       
+        is_last_stage = (current_idx == len(all_stages) - 1)
+
+       # ✅ 终止阶段 + 允许结项：如果已经是最后阶段 => 自动把课题结项
+        if stage.is_terminal and stage.allow_result and is_last_stage:
+            # 你这里也可以扩展：如果 data 里允许传 result，就用传入的
+            # 现在按你的按钮语义：点“完成”默认 SUCCESS
+            topic.result = TopicResult.SUCCESS
+
+            # ✅ 结项后：释放所有人力占用（删除该 topic 下所有 bindings）
+            db.query(Binding).filter(Binding.topic_id == topic_id).delete(synchronize_session=False)
+
+            # 可选：清掉 dri_id（避免 profile 统计还认为有 DRI）
+            topic.dri_id = None
+
+            # 可选：current_stage_instance_id 设成当前 stage（或 None 都行）
+            topic.current_stage_instance_id = stage.id
+
+        else:
+            # 激活下一阶段
+            if current_idx + 1 < len(all_stages):
+                next_stage = all_stages[current_idx + 1]
+                if next_stage.status == StageInstanceStatus.PENDING:
+                    next_stage.status = StageInstanceStatus.ACTIVE
+                    next_stage.started_at = datetime.utcnow()
+                topic.current_stage_instance_id = next_stage.id
+
         action = "stage_move_forward"
-        
+ 
     elif data.direction == "back":
         if current_idx == 0:
             raise HTTPException(status_code=400, detail="已经是第一个阶段")

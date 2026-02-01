@@ -24,49 +24,68 @@ export const useTopicsStore = defineStore('topics', () => {
     topics.value.filter(t => t.result === 'OPEN')
   );
 
-  async function fetchTopics(filters: TopicFilters = {}) {
-    loading.value = true;
-    try {
-      if (DEMO_MODE) {
-        let filtered = [...mockTopics];
-        if (filters.type) filtered = filtered.filter(t => t.type === filters.type);
-        if (filters.urgency) filtered = filtered.filter(t => t.urgency === filters.urgency);
-        if (filters.result) filtered = filtered.filter(t => t.result === filters.result);
-        if (filters.search) {
-          const s = filters.search.toLowerCase();
-          filtered = filtered.filter(t =>
-            t.title.toLowerCase().includes(s) || t.id.toString() === s
-          );
-        }
-        topics.value = filtered;
-        pagination.value = { page: 1, pageSize: 20, total: filtered.length, totalPages: 1 };
-        return;
-      }
-      const response = await topicsApi.list(filters);
-      topics.value = response.items;
-      pagination.value = {
-        page: response.page,
-        pageSize: response.pageSize,
-        total: response.total,
-        totalPages: response.totalPages,
-      };
-    } catch (error) {
-      console.error('Failed to fetch topics:', error);
-      topics.value = mockTopics;
-      pagination.value = { page: 1, pageSize: 20, total: mockTopics.length, totalPages: 1 };
-    } finally {
-      loading.value = false;
-    }
-  }
+function normalizeTopic(t: any) {
+  return {
+    ...t,
+    currentStageId: t.currentStageId ?? t.current_stage_id ?? t.current_stage?.id ?? null,
+    stageStates: t.stageStates ?? t.stage_states ?? [],
+    stageInstances: t.stageInstances ?? t.stage_instances ?? [],
+    bindings: (t.bindings ?? []).map((b: any) => ({
+      ...b,
+      slotId: b.slotId ?? b.slot_id,
+      isDri: b.isDri ?? b.is_dri ?? false,
+      topicId: b.topicId ?? b.topic_id ?? t.id,
+      slot: b.slot
+        ? {
+            ...b.slot,
+            userId: b.slot.userId ?? b.slot.user_id,
+            totalCapacity: b.slot.totalCapacity ?? b.slot.total_capacity,
+          }
+        : null,
+    })),
+  };
+}
 
+// src/stores/topics.ts
+async function fetchTopics(filters: any = {}) {
+  loading.value = true;
+  try {
+    const effective = { ...filters };
+
+    /**
+     * ✅ 全站默认隐藏 已完成/无法解决：只拉 OPEN
+     * - Dashboard / 其它页面调用 fetchTopics() 不传 result => 只会看到 OPEN
+     * - /topics 页面想看 SUCCESS/UNSOLVABLE => 必须显式传 result
+     */
+    if (effective.result === undefined || effective.result === null || effective.result === '') {
+      effective.result = 'OPEN';
+    }
+
+    const res = await topicsApi.list(effective);
+   topics.value = (res.items ?? []).map(normalizeTopic);
+
+    pagination.value = {
+      page: res.page,
+      pageSize: res.pageSize,
+      total: res.total,
+      totalPages: res.totalPages,
+    };
+  } catch (e) {
+    console.error('fetchTopics failed:', e);
+    throw e;
+  } finally {
+    loading.value = false;
+  }
+}
   async function fetchTopic(id: number) {
     loading.value = true;
     try {
       if (DEMO_MODE) {
-        currentTopic.value = mockTopics.find(t => t.id === id) || null;
-        return;
+          // ✅ demo 也最好 normalize（否则 demo 和真实接口字段可能不一致）
+         currentTopic.value = normalizeTopic(mockTopics.find((t) => t.id === id) || null);
+	 return;
       }
-      currentTopic.value = await topicsApi.get(id);
+    currentTopic.value = normalizeTopic(await topicsApi.get(id));
     } catch (error) {
       console.error('Failed to fetch topic:', error);
       currentTopic.value = mockTopics.find(t => t.id === id) || null;

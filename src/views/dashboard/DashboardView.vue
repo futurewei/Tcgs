@@ -32,6 +32,7 @@
               :hide-stages="true"
               @open="openTopic"
               @binding-pointerdown="startReleaseDrag"
+	      @result-updated="afterTopicResultUpdated"
               @binding-click="openEditBinding"
               :class="{ 'topic-row--hover': hoverTopicId === topic.id }"
             />
@@ -63,6 +64,7 @@
               :topic="topic"
               @open="openTopic"
               @binding-pointerdown="startReleaseDrag"
+	      @result-updated="afterTopicResultUpdated"
               @binding-click="openEditBinding"
               :class="{ 'topic-row--hover': hoverTopicId === topic.id }"
             />
@@ -261,6 +263,12 @@ async function afterBindingCreated() {
 }
 
 async function afterBindingUpdated() {
+  await Promise.all([topicsStore.fetchTopics(), capacityStore.fetchSlots()]);
+}
+
+async function afterTopicResultUpdated() {
+  // ✅ 一旦某个 topic 被标记 SUCCESS/UNSOLVABLE
+  // 全站默认只拉 OPEN => fetchTopics() 后它会立刻从工作台消失
   await Promise.all([topicsStore.fetchTopics(), capacityStore.fetchSlots()]);
 }
 

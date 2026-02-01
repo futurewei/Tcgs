@@ -35,12 +35,27 @@
         </div>
       </div>
 
-      <!-- Result Badge -->
-      <div class="topic-result">
-        <span :class="['result-badge', `result-badge--${(props.topic.result || '').toLowerCase()}`]">
-          {{ resultLabel }}
-        </span>
-      </div>
+	<!-- Result Badge + Actions -->
+<div class="topic-result" @click.stop>
+  <span :class="['result-badge', `result-badge--${(props.topic.result || '').toLowerCase()}`]">
+    {{ resultLabel }}
+  </span>
+
+  <!-- ✅ 右上角状态改写按钮（三点） -->
+  <el-dropdown trigger="click" @command="changeTopicResult">
+    <el-button text class="topic-more-btn" @click.stop>
+      <el-icon><MoreFilled /></el-icon>
+    </el-button>
+
+    <template #dropdown>
+      <el-dropdown-menu>
+        <el-dropdown-item command="OPEN">标记为进行中</el-dropdown-item>
+        <el-dropdown-item command="SUCCESS">标记为已完成</el-dropdown-item>
+        <el-dropdown-item command="UNSOLVABLE">标记为无法解决</el-dropdown-item>
+      </el-dropdown-menu>
+    </template>
+  </el-dropdown>
+</div>
 
       <!-- Action -->
       <el-button size="small" class="topic-action" @click.stop="emit('open', props.topic)">打开</el-button>
@@ -103,9 +118,14 @@
 </template>
 
 <script setup lang="ts">
+import { ElMessage } from 'element-plus';
+import { MoreFilled } from '@element-plus/icons-vue';
+import { useTopicsStore } from '@/stores/topics';
 import { computed, ref, onUnmounted } from 'vue';
 import type { Topic } from '@/types';
 import StageTimeline from './StageTimeline.vue';
+
+const topicsStore = useTopicsStore();
 
 const props = defineProps<{
   topic: Topic;
@@ -116,8 +136,25 @@ const emit = defineEmits<{
   (e: 'open', topic: Topic): void;
   (e: 'binding-pointerdown', payload: { e: PointerEvent; binding: any }): void;
   (e: 'binding-click', binding: any): void;
+  (e: 'result-updated'): void; // ✅ 新增：通知父组件刷新列表
 }>();
 
+async function changeTopicResult(result: 'OPEN' | 'SUCCESS' | 'UNSOLVABLE') {
+  try {
+    await topicsStore.updateTopic(props.topic.id, { result });
+    ElMessage.success('课题状态已更新');
+
+    /**
+     * ✅ 关键：Dashboard/全站默认只看 OPEN，
+     * 如果设置为 SUCCESS/UNSOLVABLE，这条应该从列表消失。
+     * 父组件收到事件后会 fetchTopics() => 默认 OPEN => 消失。
+     */
+    emit('result-updated');
+  } catch (e: any) {
+    console.error(e);
+    ElMessage.error(e?.response?.data?.detail || '更新失败');
+  }
+}
 // ========== 长按拖拽逻辑 ==========
 const LONG_PRESS_DURATION = 300; // ms
 
@@ -278,6 +315,9 @@ const sortedBindings = computed(() => {
 </script>
 
 <style scoped>
+.topic-more-btn {
+  margin-left: 6px;
+}
 .topic-row {
   padding: var(--space-3) var(--space-4);
   background: var(--color-surface-primary);

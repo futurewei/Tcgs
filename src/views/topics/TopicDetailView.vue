@@ -19,10 +19,25 @@
             </div>
             <p class="topic-id">编号: {{ topic.id }}</p>
           </div>
-          <div class="header-result">
-            <span :class="['result-badge', `result-${topic.result?.toLowerCase()}`]">{{ resultLabel }}</span>
-          </div>
-        </div>
+        <div class="header-result">
+    <el-dropdown trigger="click" @command="onHeaderResultChange">
+      <div class="header-result-clickable">
+        <span :class="['result-badge', `result-${topic.result?.toLowerCase()}`]">
+        {{ resultLabel }}
+      </span>
+      <el-icon class="ml-1"><ArrowDown /></el-icon>
+    </div>
+
+    <template #dropdown>
+      <el-dropdown-menu>
+        <el-dropdown-item command="OPEN">标记为进行中</el-dropdown-item>
+        <el-dropdown-item command="SUCCESS">标记为已完成</el-dropdown-item>
+        <el-dropdown-item command="UNSOLVABLE">标记为无法解决</el-dropdown-item>
+      </el-dropdown-menu>
+    </template>
+  </el-dropdown>
+</div>
+	</div>
         
         <!-- DRI + 需求方 + 团队 信息 -->
         <div class="meta-row">
@@ -554,6 +569,7 @@
 </template>
 
 <script setup lang="ts">
+import { ArrowDown } from '@element-plus/icons-vue';
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -788,6 +804,18 @@ function getCategoryIcon(category?: string) {
 // Stage selection
 function selectStage(stage: any) {
   selectedStageId.value = stage.id;
+}
+
+async function onHeaderResultChange(result: 'OPEN' | 'SUCCESS' | 'UNSOLVABLE') {
+  if (!topic.value) return;
+  try {
+    await topicsStore.updateTopic(topic.value.id, { result });
+    ElMessage.success('课题状态已更新');
+    await refreshTopic();
+  } catch (e: any) {
+    console.error(e);
+    ElMessage.error(e?.response?.data?.detail || '更新失败');
+  }
 }
 
 // Refresh
@@ -1212,6 +1240,12 @@ watch(topicId, async (id) => {
   padding: var(--space-5);
   max-width: 1200px;
   margin: 0 auto;
+}
+.header-result-clickable {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
 }
 
 .back-btn {

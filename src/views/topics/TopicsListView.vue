@@ -195,7 +195,7 @@ const filters = reactive({
   search: (route.query.search as string) || '',
   type: '',
   urgency: '',
-  result: '',
+  result: 'OPEN',   // ✅ 默认明确：进行中
 });
 
 const pagination = reactive({
@@ -212,20 +212,22 @@ function debouncedFetch() {
 
 function fetchTopics() {
   topicsStore.fetchTopics({
-    search: filters.search || undefined,
+    search: filters.search?.trim() ? filters.search.trim() : undefined,
     type: filters.type || undefined,
     urgency: filters.urgency || undefined,
-    result: filters.result || undefined,
+
+    // ✅ 结果：/topics 必须显式传（OPEN/SUCCESS/UNSOLVABLE）
+    result: filters.result as any,
+
     page: pagination.page,
     pageSize: pagination.pageSize,
   });
 }
-
 function resetFilters() {
   filters.search = '';
   filters.type = '';
   filters.urgency = '';
-  filters.result = '';
+  filters.result = 'OPEN';   // ✅ 重置回进行中
   pagination.page = 1;
   fetchTopics();
 }
