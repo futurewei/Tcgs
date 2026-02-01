@@ -12,6 +12,8 @@ function normalizeSlot(s: any): CapacitySlot {
   if (!s) return s;
   return {
     ...s,
+    id: s.id ?? s.slot_id,         // ✅ 兜底：workforce 返回 slot_id 时也能工作
+    slotId: s.slot_id ?? s.slotId, // ✅ 保留原字段（可选）
     userId: s.user_id ?? s.userId,
     totalCapacity: s.total_capacity ?? s.totalCapacity,
     createdAt: s.created_at ?? s.createdAt,
@@ -27,6 +29,7 @@ function normalizeBinding(b: any): Binding {
     ...b,
     topicId: b.topic_id ?? b.topicId,
     slotId: b.slot_id ?? b.slotId,
+    userId: b.user_id ?? b.userId,
     isForced: b.is_forced ?? b.isForced ?? false,
     isDri: b.is_dri ?? b.isDri ?? false,
     createdAt: b.created_at ?? b.createdAt,

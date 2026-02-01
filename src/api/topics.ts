@@ -139,7 +139,7 @@ export const topicsApi = {
     const payload: any = {
       title: data.title, description: data.description, type: data.type, urgency: data.urgency,
       template_id: data.templateId, requester_name: data.requesterName, requester_user_id: data.requesterUserId,
-      initial_dri_slot_id: data.initialDriSlotId, initial_dri_percentage: data.initialDriPercentage,
+      initial_dri_slot_id: data.initialDriSlotId, initial_dri_user_id: data.initialDriUserId, initial_dri_percentage: data.initialDriPercentage,
       background: data.background, user_goal: data.userGoal,
     };
     const response = await client.post<any>('/topics', payload);

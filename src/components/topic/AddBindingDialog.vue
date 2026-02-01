@@ -107,21 +107,43 @@ function getSlotRemaining(slot: CapacitySlot) {
   return Math.max(0, total - usage);
 }
 
-/**
- * 在本地 state 里找"同 topic + 同 user"的已有 binding
- */
-function findExistingBinding(topicId: number, userId: number): any | null {
-  const ct: any = topicsStore.currentTopic;
-  if (ct?.id === topicId && Array.isArray(ct.bindings)) {
-    return ct.bindings.find((b: any) => (b.userId ?? b.user_id ?? b.slotId ?? b.slot_id) === userId) || null;
-  }
+function bindingSlotId(b: any): number | undefined {
+  return b.slotId ?? b.slot_id ?? b.slot?.id;
+}
 
-  const t: any = topicsStore.topics.find((x: any) => x.id === topicId);
-  if (t?.bindings?.length) {
-    return t.bindings.find((b: any) => (b.userId ?? b.user_id ?? b.slotId ?? b.slot_id) === userId) || null;
-  }
+function findExistingBinding(
+  topicId: number,
+  key: { slotId?: number; userId?: number; pickedId: number }
+) {
+  // 这里按你项目里真实获取 topic/bindings 的方式调整：
+  const topic = topicsStore.topics?.find((t: any) => Number(t.id) === Number(topicId));
+  const bindings = topic?.bindings || [];
 
-  return null;
+  return (
+    bindings.find((b: any) => {
+      // 兼容各种字段名
+      const bSlotId = b.slotId ?? b.slot_id ?? b.slot?.id;
+      const bUserId =
+        b.userId ??
+        b.user_id ??
+        b.user?.id ??
+        b.slot?.userId ??
+        b.slot?.user?.id;
+
+      // 命中任意一种就算同一个人/同一个slot
+      return (
+        (key.slotId != null && Number(bSlotId) === Number(key.slotId)) ||
+        (key.userId != null && Number(bUserId) === Number(key.userId)) ||
+        Number(bSlotId) === Number(key.pickedId) ||
+        Number(bUserId) === Number(key.pickedId)
+      );
+    }) || null
+  );
+}
+
+
+function bindingUserId(b: any): number | undefined {
+  return b.userId ?? b.user_id ?? b.user?.id;
 }
 
 watch(
@@ -146,15 +168,14 @@ async function handleSubmit() {
     if (!valid) return;
 
     const topicId = props.topicId;
-    const userId = form.slotId!;  // 现在 slotId 实际上是 userId
+    const slotId = Number(form.slotId);          // ✅ 现在 slotId 就是 CapacitySlot.id
     const pct = Number(form.percentage);
 
     loading.value = true;
     try {
-      const existing = findExistingBinding(topicId, userId);
+      const existing = findExistingBinding(topicId, slotId);
 
       if (existing) {
-        // 已存在：更新（累加）
         const newPct = Math.min(100, Number(existing.percentage || 0) + pct);
         await capacityStore.updateBinding(existing.id, {
           percentage: newPct,
@@ -162,10 +183,9 @@ async function handleSubmit() {
         });
         ElMessage.success('分配已更新');
       } else {
-        // 不存在：创建 - 使用 userId
         await capacityStore.createBinding({
           topicId,
-          userId,  // 使用新的 userId 字段
+          slotId,                    // ✅ 真 slotId
           percentage: pct,
           isForced: form.isForced,
         });
@@ -173,7 +193,7 @@ async function handleSubmit() {
       }
 
       emit('update:modelValue', false);
-      emit('created');
+      emit('created');               // TopicDetailView 会 refreshTopic()
     } catch (error: any) {
       console.error('Binding error:', error);
       ElMessage.error(error.response?.data?.detail || '分配失败');
@@ -182,4 +202,5 @@ async function handleSubmit() {
     }
   });
 }
+
 </script>

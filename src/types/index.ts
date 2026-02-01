@@ -96,6 +96,7 @@ export interface TopicCreateRequest {
   requesterName: string;
   requesterUserId?: number;
   initialDriSlotId?: number;  // First slot to bind as DRI
+  initialDriUserId?: number;
   initialDriPercentage?: number;  // Default percentage for DRI binding
 }
 

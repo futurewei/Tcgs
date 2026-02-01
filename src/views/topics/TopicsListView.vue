@@ -57,17 +57,13 @@
             <div class="topic-card-header">
               <h3 class="topic-card-title">{{ topic.title }}</h3>
 
-              <span
-                :class="['priority-tag', `priority-tag--${(topic.urgency || '').toLowerCase()}`]"
-              >
+              <span :class="['priority-tag', `priority-tag--${(topic.urgency || '').toLowerCase()}`]">
                 {{ topic.urgency }}
               </span>
 
               <span class="type-tag">{{ getTypeLabel(topic.type) }}</span>
 
-              <span
-                :class="['result-tag', `result-tag--${(topic.result || '').toLowerCase()}`]"
-              >
+              <span :class="['result-tag', `result-tag--${(topic.result || '').toLowerCase()}`]">
                 {{ getResultLabel(topic.result) }}
               </span>
             </div>
@@ -244,12 +240,9 @@ function getTypeLabel(type: string) {
 
 function getResultLabel(result: string) {
   switch (result) {
-    case 'SUCCESS':
-      return '已完成';
-    case 'UNSOLVABLE':
-      return '无法解决';
-    default:
-      return '进行中';
+    case 'SUCCESS': return '已完成';
+    case 'UNSOLVABLE': return '无法解决';
+    default: return '进行中';
   }
 }
 
@@ -331,10 +324,11 @@ onMounted(() => {
   color: var(--color-text-primary);
 }
 
-/* ✅ 修复：搜索框被挤压 */
+/* ✅ 修复：filter 区域可换行，避免搜索框被挤压成小条 */
 .filter-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-3);
   margin-bottom: var(--space-5);
   padding: var(--space-4);
@@ -343,17 +337,47 @@ onMounted(() => {
   border-radius: var(--radius-lg);
 }
 
+/* ✅ 搜索框优先吃空间 */
 .filter-search {
-  flex: 1 1 360px;
-  min-width: 320px;
+  flex: 1 1 520px;   /* 优先占大头 */
+  min-width: 420px;  /* 不要变成你第三张图那样窄 */
 }
 
+/* ✅ 其他下拉固定宽 */
 .filter-item {
   width: 160px;
 }
 
 .filter-reset {
   flex: 0 0 auto;
+}
+
+/* =========================
+   ✅ 关键：干掉“泡泡”焦点态
+   Element Plus 默认用 box-shadow 画输入框边界+focus glow，会像套了个内框
+   这里改成：普通 border + focus ring（更克制、更像你第二张图）
+   ========================= */
+.filter-search :deep(.el-input__wrapper) {
+  box-shadow: none !important;                 /* 干掉默认的“泡泡框” */
+  border: 1px solid var(--el-border-color);    /* 用 border 画边框 */
+  border-radius: 12px;
+  height: 48px;
+  padding: 0 12px;
+  background: var(--el-bg-color);
+}
+
+.filter-search :deep(.el-input__wrapper:hover) {
+  border-color: var(--el-border-color-hover);
+}
+
+.filter-search :deep(.el-input__wrapper.is-focus) {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.18) !important;  /* 轻微 focus ring */
+}
+
+.filter-search :deep(.el-input__inner) {
+  height: 46px;
+  line-height: 46px;
 }
 
 .topics-list {
@@ -598,5 +622,15 @@ onMounted(() => {
   justify-content: center;
   margin-top: var(--space-6);
 }
-</style>
 
+/* 小屏时：下拉和按钮自动换行，不挤搜索框 */
+@media (max-width: 980px) {
+  .filter-search {
+    flex: 1 1 100%;
+    min-width: 260px;
+  }
+  .filter-item {
+    width: 180px;
+  }
+}
+</style>

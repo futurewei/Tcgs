@@ -274,6 +274,25 @@ async function handleCreate() {
 
     loading.value = true;
     try {
+      // --- 关键新增：从 initialDriSlotId 推导 initialDriUserId ---
+      const pickedDriId = form.initialDriSlotId;
+
+      // capacityStore.slots 里的一条记录一般长这样：
+      // { id: slotId(或userId), userId, user: {id, name...}, ... }
+      const pickedSlot = pickedDriId != null
+        ? capacityStore.slots?.find((s: any) => Number(s.id) === Number(pickedDriId))
+        : undefined;
+
+      // 兼容各种字段：userId / user.id；以及“id 本身就是 userId”的迁移期情况
+      const initialDriUserId =
+        pickedSlot?.userId != null
+          ? Number(pickedSlot.userId)
+          : pickedSlot?.user?.id != null
+            ? Number(pickedSlot.user.id)
+            : pickedDriId != null
+              ? Number(pickedDriId)
+              : undefined;
+
       const topic = await topicsStore.createTopic({
         title: form.title,
         description: form.description,
@@ -282,18 +301,23 @@ async function handleCreate() {
         templateId: form.templateId!,
         requesterName: form.requesterName,
         requesterUserId: form.requesterUserId,
+
+        // --- DRI：同时传 slotId + userId，后端认哪个用哪个 ---
         initialDriSlotId: form.initialDriSlotId,
+        initialDriUserId,
         initialDriPercentage: form.initialDriPercentage,
       });
 
-      ElMessage.success('课题创建成功');
+      ElMessage.success('创建成功');
+      emit('created', topic);
       emit('update:modelValue', false);
-      router.push(`/topics/${topic.id}`);
     } catch (error: any) {
+      console.error('Create topic error:', error);
       ElMessage.error(error.response?.data?.detail || '创建失败');
     } finally {
       loading.value = false;
     }
   });
 }
+
 </script>

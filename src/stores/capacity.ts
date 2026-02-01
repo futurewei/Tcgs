@@ -39,8 +39,8 @@ export const useCapacityStore = defineStore('capacity', () => {
         slots.value = filtered;
         return;
       }
-      // 使用新的 workforce API（基于 User）
-      slots.value = await capacityApi.listWorkforce(type);
+    	// ✅ 回归 slot 体系：id=slot.id，避免和 userId 撞号
+	slots.value = await capacityApi.listSlots(type)
     } catch (error) {
       console.error('Failed to fetch workforce:', error);
       throw error;

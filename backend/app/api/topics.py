@@ -218,9 +218,11 @@ def create_topic(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # CUSTOMER cannot create topics
     if current_user.role == UserRole.CUSTOMER:
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot create topics")
-    
+
+    # Only ADMIN can create topics
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Only admin can create topics")
 
@@ -235,7 +237,10 @@ def create_topic(
         requester_name = requester_user.name
     else:
         if not topic_data.requester_name or not topic_data.requester_name.strip():
-            raise HTTPException(status_code=400, detail="requester_name is required when requester_user_id is not provided")
+            raise HTTPException(
+                status_code=400,
+                detail="requester_name is required when requester_user_id is not provided"
+            )
         requester_name = topic_data.requester_name.strip()
 
     # Validate template exists
@@ -245,7 +250,7 @@ def create_topic(
     if not template:
         raise HTTPException(status_code=400, detail="Template not found")
 
-    # Create topic
+    # Create topic (without dri_id initially)
     topic = Topic(
         title=topic_data.title,
         description=topic_data.description,
@@ -258,9 +263,10 @@ def create_topic(
         requester_user_id=topic_data.requester_user_id,
     )
     db.add(topic)
-    db.flush()
+    db.flush()  # 获取 topic.id
 
-    # Create stage states (旧逻辑，保留兼容)
+    # Create stage states and set first stage as active (旧逻辑，保留兼容)
+    # 只为演进课题创建旧的 stage states
     if topic_data.type != TopicType.UNCERTAINTY:
         for i, stage in enumerate(template.stages):
             state = TopicStageState(
@@ -273,6 +279,8 @@ def create_topic(
                 topic.current_stage_id = stage.id
 
     # 新逻辑：创建 Stage Instances
+    # 不确定性课题：不自动创建阶段，让用户自己添加
+    # 演进课题：按模板创建阶段
     first_instance = None
     if topic_data.type != TopicType.UNCERTAINTY:
         for i, stage in enumerate(template.stages):
@@ -292,24 +300,58 @@ def create_topic(
                 instance.started_at = datetime.utcnow()
                 first_instance = instance
             db.add(instance)
-    
+
     db.flush()
-    
+
+    # Set current stage instance
     if first_instance:
         topic.current_stage_instance_id = first_instance.id
 
-    # ✅ Fix: initial_dri_slot_id 兼容传 slot_id / user_id，并确保 user 一定有 slot
+    # ========= ✅ 修复：Initial DRI slot_id / user_id 兼容解析 =========
+    def resolve_initial_dri_slot(slot_or_user_id: int) -> Optional[CapacitySlot]:
+        # 1) 先按 CapacitySlot.id 查
+        slot = db.query(CapacitySlot).filter(CapacitySlot.id == slot_or_user_id).first()
+        if slot:
+            return slot
+
+        # 2) 再按 CapacitySlot.user_id 查（兼容前端传 userId）
+        slots = db.query(CapacitySlot).filter(CapacitySlot.user_id == slot_or_user_id).all()
+        if not slots:
+            return None
+
+        # 3) 多个 slot 时，尽量选“自有人力/INTERNAL”之类（如果你的模型有 type 字段）
+        #    没有就返回第一个
+        try:
+            # 有些项目 type 是 enum/string：INTERNAL / EXTERNAL
+            internal = [s for s in slots if getattr(s, "type", None) and str(getattr(s, "type")).upper().find("EXTERNAL") < 0]
+            if internal:
+                return internal[0]
+        except Exception:
+            pass
+
+        return slots[0]
+
+    # If initial DRI slot is provided, create the first binding as DRI
     if topic_data.initial_dri_slot_id:
-        slot = _resolve_slot_by_id_or_user_id(db, int(topic_data.initial_dri_slot_id))
+        slot = resolve_initial_dri_slot(int(topic_data.initial_dri_slot_id))
+        if not slot:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Initial DRI slot not found (received={topic_data.initial_dri_slot_id}). "
+                       f"Expected CapacitySlot.id, but userId is also supported now. "
+                       f"Please ensure the user has at least one CapacitySlot."
+            )
 
         binding = Binding(
             topic_id=topic.id,
-            slot_id=slot.id,
-            percentage=(topic_data.initial_dri_percentage or 25),
+            slot_id=slot.id,  # ✅确保写入 slot.id
+            user_id=slot.user_id,                 # ✅ 补这一行
+            percentage=topic_data.initial_dri_percentage,
             is_dri=True
         )
         db.add(binding)
 
+        # Also set legacy dri_id for backward compatibility
         if slot.user_id:
             topic.dri_id = slot.user_id
 
@@ -325,8 +367,8 @@ def create_topic(
         new_value={"title": topic.title, "type": topic.type.value}
     )
 
-    return _get_topic_with_relations(db, topic.id)
-
+    topic = _get_topic_with_relations(db, topic.id)
+    return TopicResponse.model_validate(topic)
 
 @router.put("/{topic_id}", response_model=TopicResponse)
 def update_topic(

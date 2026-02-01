@@ -21,7 +21,7 @@ try:
         # Create admin user
         admin = User(
             email="admin@tcgs.com",
-            name="管理员",
+            name="admin",
             hashed_password=AuthService.get_password_hash("admin123"),
             role=UserRole.ADMIN
         )
@@ -33,7 +33,7 @@ try:
     if not member:
         member = User(
             email="member@tcgs.com",
-            name="算法成员",
+            name="大峰",
             hashed_password=AuthService.get_password_hash("member123"),
             role=UserRole.MEMBER
         )
@@ -45,7 +45,7 @@ try:
     if not reviewer:
         reviewer = User(
             email="reviewer@tcgs.com",
-            name="评审员",
+            name="旭哥",
             hashed_password=AuthService.get_password_hash("reviewer123"),
             role=UserRole.REVIEWER
         )
@@ -69,7 +69,7 @@ try:
     if not customer:
         customer = User(
             email="pdt@tcgs.com",
-            name="PDT需求方",
+            name="PDT经理",
             hashed_password=AuthService.get_password_hash("pdt123"),
             role=UserRole.CUSTOMER
         )
@@ -215,10 +215,10 @@ try:
         print("Renamed old POC Template")
 
     # Create capacity slots (Chinese names)
-    slot1 = db.query(CapacitySlot).filter(CapacitySlot.name == "张三").first()
+    slot1 = db.query(CapacitySlot).filter(CapacitySlot.name == member.name).first()
     if not slot1:
         slot1 = CapacitySlot(
-            name="张三",
+            name=member.name,
             type=SlotType.ALGO,
             user_id=member.id if member else None,
             total_capacity=100
@@ -226,10 +226,10 @@ try:
         db.add(slot1)
         print("Created Algo slot: 张三")
 
-    slot2 = db.query(CapacitySlot).filter(CapacitySlot.name == "李四").first()
+    slot2 = db.query(CapacitySlot).filter(CapacitySlot.name == reviewer.name).first()
     if not slot2:
         slot2 = CapacitySlot(
-            name="李四",
+            name=reviewer.name,
             type=SlotType.ALGO,
             user_id=reviewer.id if reviewer else None,
             total_capacity=100
@@ -248,10 +248,10 @@ try:
         db.add(slot3)
         print("Created Algo slot: 王五")
 
-    ext_slot = db.query(CapacitySlot).filter(CapacitySlot.name == "外部供应商A").first()
+    ext_slot = db.query(CapacitySlot).filter(CapacitySlot.name == external.name).first()
     if not ext_slot:
         ext_slot = CapacitySlot(
-            name="外部供应商A",
+            name=external.name,
             type=SlotType.EXTERNAL,
             user_id=external.id if external else None,
             total_capacity=50
