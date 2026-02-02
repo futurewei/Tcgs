@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.attributes import set_committed_value
 from typing import Optional, List
 
 from ..database import get_db
 from ..models.user import User, UserRole
-from ..models.topic import Topic
+from ..models.topic import Topic, TopicResult
 from ..models.capacity import CapacitySlot, Binding, SlotType
 from ..schemas.capacity import (
     SlotCreate, SlotUpdate, SlotResponse,
@@ -15,6 +16,51 @@ from ..services.audit import AuditService
 from ..models.audit import AuditAction
 
 router = APIRouter()
+
+def _topic_result_value(r) -> str | None:
+    """Normalize Topic.result into a comparable string.
+
+    We intentionally treat unknown / None as "active" later, because:
+    - some older DB rows may have NULL/legacy enum values
+    - during certain ORM states the relationship might not be loaded
+    """
+    if r is None:
+        return None
+    try:
+        # Enum (TopicResult.SUCCESS, etc.)
+        return r.value  # type: ignore[attr-defined]
+    except Exception:
+        try:
+            return str(r)
+        except Exception:
+            return None
+
+
+def _is_active_binding(b: Binding) -> bool:
+    """Whether a binding should occupy capacity / appear on slot board.
+
+    Product semantics:
+    - bindings are kept forever for archival
+    - but only *non-finished* topics occupy capacity
+
+    We define "finished" as result in {SUCCESS, UNSOLVABLE}.
+    Anything else (including None/unknown) is treated as active to avoid under-counting.
+    """
+    try:
+        r = None
+        if getattr(b, "topic", None) is not None:
+            r = getattr(b.topic, "result", None)
+        rv = _topic_result_value(r)
+        return rv not in (TopicResult.SUCCESS.value, TopicResult.UNSOLVABLE.value)
+    except Exception:
+        # safer default: count as active instead of silently freeing capacity
+        return True
+
+
+def _active_bindings(bindings: list[Binding] | None) -> list[Binding]:
+    if not bindings:
+        return []
+    return [b for b in bindings if _is_active_binding(b)]
 
 
 # =========================
@@ -49,13 +95,17 @@ def list_slots(
 
     query = db.query(CapacitySlot).options(
         joinedload(CapacitySlot.user),
-        joinedload(CapacitySlot.bindings)
+        joinedload(CapacitySlot.bindings).joinedload(Binding.topic)
     )
 
     if type:
         query = query.filter(CapacitySlot.type == type)
 
-    return query.order_by(CapacitySlot.name).all()
+    slots = query.order_by(CapacitySlot.name).all()
+    # Only expose active bindings in slot board (exclude finished topics)
+    for s in slots:
+        set_committed_value(s, 'bindings', _active_bindings(getattr(s, 'bindings', None)))
+    return slots
 
 
 @router.get("/slots/{slot_id}", response_model=SlotResponse)
@@ -66,11 +116,12 @@ def get_slot(
 ):
     slot = db.query(CapacitySlot).options(
         joinedload(CapacitySlot.user),
-        joinedload(CapacitySlot.bindings)
+        joinedload(CapacitySlot.bindings).joinedload(Binding.topic)
     ).filter(CapacitySlot.id == slot_id).first()
 
     if not slot:
         raise HTTPException(status_code=404, detail="Slot not found")
+    set_committed_value(slot, 'bindings', _active_bindings(getattr(slot, 'bindings', None)))
     return slot
 
 
@@ -197,13 +248,13 @@ def create_binding(
 
     if binding_data.user_id:
         # 新方式：直接用 user_id
-        target_user = db.query(User).options(joinedload(User.bindings)).filter(
+        target_user = db.query(User).options(joinedload(User.bindings).joinedload(Binding.topic)).filter(
             User.id == binding_data.user_id
         ).first()
         if not target_user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # ✅ 关键修复：用 user_id 反查 slot_id（避免 INSERT slot_id=NULL）
+        # 用 user_id 反查 slot_id（避免 INSERT slot_id=NULL）
         slot = db.query(CapacitySlot).filter(CapacitySlot.user_id == target_user.id).first()
         if not slot:
             raise HTTPException(status_code=400, detail=f"No capacity slot found for user_id={target_user.id}")
@@ -211,8 +262,8 @@ def create_binding(
         slot_id_final = slot.id
         user_id_final = target_user.id
 
-        # 检查用户工时（按 user.bindings）
-        current_usage = sum(b.percentage for b in (target_user.bindings or []))
+        # 检查用户工时（只排除 finished topics）
+        current_usage = sum(b.percentage for b in _active_bindings(target_user.bindings))
         if current_usage + binding_data.percentage > target_user.total_capacity and not binding_data.is_forced:
             raise HTTPException(status_code=400, detail="Exceeds user capacity. Use force option.")
 
@@ -220,7 +271,7 @@ def create_binding(
         # 旧方式：用 slot_id（向后兼容）
         slot = db.query(CapacitySlot).options(
             joinedload(CapacitySlot.user),
-            joinedload(CapacitySlot.bindings),
+            joinedload(CapacitySlot.bindings).joinedload(Binding.topic),
         ).filter(CapacitySlot.id == binding_data.slot_id).first()
         if not slot:
             raise HTTPException(status_code=404, detail="Slot not found")
@@ -229,7 +280,7 @@ def create_binding(
         slot_id_final = slot.id
         user_id_final = slot.user_id
 
-        current_usage = sum(b.percentage for b in (slot.bindings or []))
+        current_usage = sum(b.percentage for b in _active_bindings(slot.bindings))
         if current_usage + binding_data.percentage > slot.total_capacity and not binding_data.is_forced:
             raise HTTPException(status_code=400, detail="Exceeds slot capacity. Use force option.")
     else:
@@ -254,7 +305,7 @@ def create_binding(
             if b.is_dri:
                 b.is_dri = False
 
-    # ✅ 最终写入：slot_id 一定非空
+    # 最终写入：slot_id 一定非空
     binding = Binding(
         topic_id=binding_data.topic_id,
         slot_id=slot_id_final,
@@ -405,7 +456,7 @@ def list_workforce(
     - type=EXTERNAL: EXTERNAL（协调人力）
     - 不传: 全部
     """
-    query = db.query(User).options(joinedload(User.bindings))
+    query = db.query(User).options(joinedload(User.bindings).joinedload(Binding.topic))
 
     if type == "ALGO":
         query = query.filter(User.role.in_([UserRole.MEMBER, UserRole.REVIEWER]))
@@ -418,8 +469,8 @@ def list_workforce(
 
     result = []
     for user in users:
-        used_capacity = sum(b.percentage for b in (user.bindings or []))
-        user_type = "EXTERNAL" if user.role == UserRole.EXTERNAL else "ALGO"  # ✅ REVIEWER 也算 ALGO
+        used_capacity = sum(b.percentage for b in _active_bindings(user.bindings))
+        user_type = "EXTERNAL" if user.role == UserRole.EXTERNAL else "ALGO"  # REVIEWER 也算 ALGO
 
         result.append({
             "id": user.id,
@@ -443,8 +494,9 @@ def list_workforce(
                     "percentage": b.percentage,
                     "isDri": b.is_dri,
                 }
-                for b in (user.bindings or [])
+                for b in _active_bindings(user.bindings)
             ],
         })
 
     return result
+

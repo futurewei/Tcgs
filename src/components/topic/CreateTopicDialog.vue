@@ -309,6 +309,15 @@ async function handleCreate() {
       });
 
       ElMessage.success('创建成功');
+      
+      // ✅ 创建课题会在后端自动创建 DRI binding，但 capacity 看板数据需要刷新
+      // 否则用户需要手动刷新页面才会看到 usage 扣减
+      try {
+  	   await capacityStore.fetchSlots();
+      } catch (e) {
+  	   console.warn('refresh slots after create topic failed', e);
+      }
+
       emit('created', topic);
       emit('update:modelValue', false);
     } catch (error: any) {
