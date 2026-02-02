@@ -225,7 +225,8 @@ const personLoadData = ref<PersonLoadData[]>([]);
 const externalCollabData = ref<ExternalCollabData[]>([]);
 
 const maxThroughput = computed(() => {
-  const max = Math.max(...throughputData.value.map(d => Math.max(d.newTopics, d.closedTopics)));
+  // 这是堆叠柱（new + closed 叠加），所以必须按“总量”缩放
+  const max = Math.max(...throughputData.value.map(d => (d.newTopics + d.closedTopics)));
   return max || 1;
 });
 
