@@ -249,6 +249,7 @@ class TopicResponse(TopicBase):
     deliverables: List[StageDeliverableResponse] = []
     created_at: datetime
     updated_at: datetime
+    closed_at: Optional[datetime] = None  # 课题关闭时间
 
     class Config:
         from_attributes = True

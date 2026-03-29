@@ -75,6 +75,21 @@
             </div>
             <el-button v-if="authStore.isAdmin" size="small" text class="meta-action" @click="showAddBinding = true">添加</el-button>
           </div>
+
+          <div class="meta-divider"></div>
+
+          <div class="meta-item">
+            <span class="meta-label">创建时间</span>
+            <span class="meta-value">{{ formatDateTime(topic.created_at || topic.createdAt) }}</span>
+          </div>
+
+          <template v-if="topic.closed_at || topic.closedAt">
+            <div class="meta-divider"></div>
+            <div class="meta-item">
+              <span class="meta-label">关闭时间</span>
+              <span class="meta-value closed-time">{{ formatDateTime(topic.closed_at || topic.closedAt) }}</span>
+            </div>
+          </template>
         </div>
       </section>
 
@@ -790,6 +805,10 @@ function formatDate(date?: string) {
   return date ? dayjs(date).format('MM-DD HH:mm') : '';
 }
 
+function formatDateTime(date?: string) {
+  return date ? dayjs(date).format('YYYY-MM-DD HH:mm') : '';
+}
+
 function getCategoryIcon(category?: string) {
   const icons: Record<string, any> = {
     document: Document,
@@ -1377,6 +1396,9 @@ watch(topicId, async (id) => {
 .meta-action {
   color: var(--color-primary);
   font-size: var(--text-xs);
+}
+.closed-time {
+  color: var(--color-success-600);
 }
 
 /* DRI Chip */

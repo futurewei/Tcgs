@@ -69,6 +69,7 @@ class Topic(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    closed_at = Column(DateTime(timezone=True), nullable=True)  # 课题关闭时间（result 变为 SUCCESS/UNSOLVABLE 时自动设置）
 
     # Relationships
     dri = relationship("User", back_populates="dri_topics", foreign_keys=[dri_id])

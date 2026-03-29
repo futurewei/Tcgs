@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from ..database import get_db
 from ..models.user import User, UserRole
-from ..models.topic import Topic, TopicStageState, StageStatus, TopicType
+from ..models.topic import Topic, TopicStageState, StageStatus, TopicType, TopicResult
 from ..models.template import StageTemplate, StageTemplateStage
 from ..models.artifact import Artifact
 from ..models.review import ReviewComment
@@ -416,6 +416,14 @@ def update_topic(
         old_values["result"] = old_result.value
 
         topic.result = topic_data.result
+
+        # 自动设置/清除 closed_at
+        if topic_data.result in [TopicResult.SUCCESS, TopicResult.UNSOLVABLE]:
+            # 关闭课题时设置关闭时间
+            topic.closed_at = datetime.utcnow()
+        elif topic_data.result == TopicResult.OPEN:
+            # 重新打开课题时清除关闭时间
+            topic.closed_at = None
 
         AuditService.log(
             db,
