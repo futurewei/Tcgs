@@ -1,5 +1,5 @@
 """
-Seed script to create initial data for TCGS
+Seed script to create initial data for AlgoHub
 Run: python seed.py
 """
 from app.database import SessionLocal, engine, Base
@@ -16,65 +16,65 @@ db = SessionLocal()
 
 try:
     # Check if admin exists
-    admin = db.query(User).filter(User.email == "admin@tcgs.com").first()
+    admin = db.query(User).filter(User.email == "admin@algohub.com").first()
     if not admin:
         # Create admin user
         admin = User(
-            email="admin@tcgs.com",
+            email="admin@algohub.com",
             name="admin",
             hashed_password=AuthService.get_password_hash("admin123"),
             role=UserRole.ADMIN
         )
         db.add(admin)
-        print("Created admin user: admin@tcgs.com / admin123")
+        print("Created admin user: admin@algohub.com / admin123")
 
     # Create member user
-    member = db.query(User).filter(User.email == "member@tcgs.com").first()
+    member = db.query(User).filter(User.email == "member@algohub.com").first()
     if not member:
         member = User(
-            email="member@tcgs.com",
+            email="member@algohub.com",
             name="大峰",
             hashed_password=AuthService.get_password_hash("member123"),
             role=UserRole.MEMBER
         )
         db.add(member)
-        print("Created member user: member@tcgs.com / member123")
+        print("Created member user: member@algohub.com / member123")
 
     # Create reviewer user
-    reviewer = db.query(User).filter(User.email == "reviewer@tcgs.com").first()
+    reviewer = db.query(User).filter(User.email == "reviewer@algohub.com").first()
     if not reviewer:
         reviewer = User(
-            email="reviewer@tcgs.com",
+            email="reviewer@algohub.com",
             name="旭哥",
             hashed_password=AuthService.get_password_hash("reviewer123"),
             role=UserRole.REVIEWER
         )
         db.add(reviewer)
-        print("Created reviewer user: reviewer@tcgs.com / reviewer123")
+        print("Created reviewer user: reviewer@algohub.com / reviewer123")
 
     # Create external user
-    external = db.query(User).filter(User.email == "external@tcgs.com").first()
+    external = db.query(User).filter(User.email == "external@algohub.com").first()
     if not external:
         external = User(
-            email="external@tcgs.com",
+            email="external@algohub.com",
             name="外部协作者",
             hashed_password=AuthService.get_password_hash("external123"),
             role=UserRole.EXTERNAL
         )
         db.add(external)
-        print("Created external user: external@tcgs.com / external123")
+        print("Created external user: external@algohub.com / external123")
 
     # Create customer user (Requester / Client)
-    customer = db.query(User).filter(User.email == "pdt@tcgs.com").first()
+    customer = db.query(User).filter(User.email == "pdt@algohub.com").first()
     if not customer:
         customer = User(
-            email="pdt@tcgs.com",
+            email="pdt@algohub.com",
             name="PDT经理",
             hashed_password=AuthService.get_password_hash("pdt123"),
             role=UserRole.CUSTOMER
         )
         db.add(customer)
-        print("Created customer user: pdt@tcgs.com / pdt123")
+        print("Created customer user: pdt@algohub.com / pdt123")
 
     db.flush()
 
@@ -283,11 +283,11 @@ try:
     db.commit()
     print("\nSeed completed successfully!")
     print("\nDemo accounts:")
-    print("  Admin:    admin@tcgs.com / admin123")
-    print("  Member:   member@tcgs.com / member123")
-    print("  Reviewer: reviewer@tcgs.com / reviewer123")
-    print("  External: external@tcgs.com / external123")
-    print("  Customer: pdt@tcgs.com / pdt123")
+    print("  Admin:    admin@algohub.com / admin123")
+    print("  Member:   member@algohub.com / member123")
+    print("  Reviewer: reviewer@algohub.com / reviewer123")
+    print("  External: external@algohub.com / external123")
+    print("  Customer: pdt@algohub.com / pdt123")
 
 except Exception as e:
     print(f"Error: {e}")

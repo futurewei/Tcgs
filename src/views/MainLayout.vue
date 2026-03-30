@@ -7,9 +7,9 @@
           <el-icon :size="18"><Menu /></el-icon>
         </button>
         <div class="tcgs-brand">
-          <span class="tcgs-brand-text">TCGS</span>
+          <span class="tcgs-brand-text">AlgoHub</span>
           <span class="tcgs-brand-divider"></span>
-          <span class="tcgs-brand-subtitle">课题治理系统</span>
+          <span class="tcgs-brand-subtitle">算法能力中台</span>
         </div>
       </div>
 

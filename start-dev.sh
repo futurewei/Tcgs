@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# TCGS 本地开发启动脚本
+# AlgoHub 本地开发启动脚本
 # 用于同时启动前端和后端服务
 
 export PATH="/opt/homebrew/opt/node@20/bin:/opt/homebrew/opt/python@3.11/bin:/opt/homebrew/opt/postgresql@15/bin:$PATH"
@@ -8,7 +8,7 @@ export PATH="/opt/homebrew/opt/node@20/bin:/opt/homebrew/opt/python@3.11/bin:/op
 PROJECT_DIR="/Users/laiwei/Desktop/algo_gov/tcgs_prod_v2/Tcgs"
 
 echo "=========================================="
-echo "  TCGS 本地开发环境启动"
+echo "  AlgoHub 本地开发环境启动"
 echo "=========================================="
 
 # 检查 PostgreSQL 是否运行
@@ -50,9 +50,9 @@ echo "   后端 API: http://localhost:8000"
 echo "   API 文档: http://localhost:8000/docs"
 echo ""
 echo "👤 测试账号："
-echo "   Admin:    admin@tcgs.com / admin123"
-echo "   Member:   member@tcgs.com / member123"
-echo "   Reviewer: reviewer@tcgs.com / reviewer123"
+echo "   Admin:    admin@algohub.com / admin123"
+echo "   Member:   member@algohub.com / member123"
+echo "   Reviewer: reviewer@algohub.com / reviewer123"
 echo ""
 echo "按 Ctrl+C 停止所有服务"
 echo ""

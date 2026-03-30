@@ -3,8 +3,8 @@
     <div class="login-container">
       <div class="login-card">
         <div class="login-header">
-          <h1 class="login-title">TCGS 课题治理系统</h1>
-          <p class="login-subtitle">Topic & Capacity Governance System</p>
+          <h1 class="login-title">AlgoHub 算法能力中台</h1>
+          <p class="login-subtitle">Algorithm Capability Platform</p>
         </div>
 
         <el-form
@@ -30,9 +30,9 @@
         <div class="demo-accounts">
           <p class="demo-title">演示账号:</p>
           <div class="demo-list">
-            <p><strong>管理员:</strong> admin@tcgs.com / admin123</p>
-            <p><strong>算法成员:</strong> member@tcgs.com / member123</p>
-            <p><strong>需求方:</strong> pdt@tcgs.com / pdt123</p>
+            <p><strong>管理员:</strong> admin@algohub.com / admin123</p>
+            <p><strong>算法成员:</strong> member@algohub.com / member123</p>
+            <p><strong>需求方:</strong> pdt@algohub.com / pdt123</p>
           </div>
         </div>
       </div>

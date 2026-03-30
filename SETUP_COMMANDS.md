@@ -1,4 +1,4 @@
-# TCGS 项目本地部署命令记录
+# AlgoHub 项目本地部署命令记录
 
 ## 环境要求
 - macOS (Apple Silicon)
@@ -32,7 +32,7 @@ brew services start postgresql@15
 # 创建用户和数据库
 createuser -s postgres
 psql postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"
-createdb -U postgres tcgs
+createdb -U postgres algohub
 ```
 
 ---
@@ -61,12 +61,12 @@ pip install -r requirements.txt
 ```bash
 # 创建 .env 文件
 cat > /Users/laiwei/Desktop/algo_gov/tcgs_prod_v2/Tcgs/backend/.env << 'EOF'
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tcgs
-SECRET_KEY=tcgs-dev-secret-key-2026
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/algohub
+SECRET_KEY=algohub-dev-secret-key-2026
 MINIO_ENDPOINT=localhost:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=tcgs-attachments
+MINIO_BUCKET=algohub-attachments
 MINIO_SECURE=false
 DEBUG=true
 EOF
@@ -175,11 +175,11 @@ cd /Users/laiwei/Desktop/algo_gov/tcgs_prod_v2/Tcgs
 
 | 角色 | 邮箱 | 密码 |
 |------|------|------|
-| Admin | admin@tcgs.com | admin123 |
-| Member | member@tcgs.com | member123 |
-| Reviewer | reviewer@tcgs.com | reviewer123 |
-| External | external@tcgs.com | external123 |
-| Customer | pdt@tcgs.com | pdt123 |
+| Admin | admin@algohub.com | admin123 |
+| Member | member@algohub.com | member123 |
+| Reviewer | reviewer@algohub.com | reviewer123 |
+| External | external@algohub.com | external123 |
+| Customer | pdt@algohub.com | pdt123 |
 
 ---
 
@@ -190,10 +190,10 @@ cd /Users/laiwei/Desktop/algo_gov/tcgs_prod_v2/Tcgs
 docker ps
 
 # 查看后端日志
-docker logs tcgs-backend
+docker logs algohub-backend
 
 # 查看前端日志
-docker logs tcgs-frontend
+docker logs algohub-frontend
 
 # 停止所有服务
 docker compose down

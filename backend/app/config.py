@@ -5,10 +5,10 @@ from typing import List
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/tcgs"
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/algohub"
 
     # JWT
-    SECRET_KEY: str = "tcgs-dev-secret-key-2026"
+    SECRET_KEY: str = "algohub-dev-secret-key-2026"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     MINIO_ENDPOINT: str = "localhost:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"
-    MINIO_BUCKET: str = "tcgs-attachments"
+    MINIO_BUCKET: str = "algohub-attachments"
     MINIO_SECURE: bool = False
 
     # App

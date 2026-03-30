@@ -18,8 +18,8 @@ limiter = Limiter(key_func=get_remote_address)
 
 # Create FastAPI app - 生产环境禁用API文档
 app = FastAPI(
-    title="TCGS API",
-    description="Topic & Capacity Governance System API",
+    title="AlgoHub API",
+    description="Algorithm Capability Platform API",
     version="1.0.0",
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
@@ -76,7 +76,7 @@ app.include_router(api_router, prefix="/api")
 
 @app.get("/")
 def root():
-    return {"message": "TCGS API", "version": "1.0.0"}
+    return {"message": "AlgoHub API", "version": "1.0.0"}
 
 
 @app.get("/health")

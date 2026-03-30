@@ -5,7 +5,7 @@ import 'element-plus/dist/index.css';
 import router from './router';
 import App from './App.vue';
 
-// TCGS Design System (包含 design-tokens, element-override, components)
+// AlgoHub Design System (包含 design-tokens, element-override, components)
 import './style.css';
 
 const app = createApp(App);
