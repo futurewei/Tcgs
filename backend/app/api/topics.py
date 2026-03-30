@@ -257,8 +257,7 @@ def create_topic(
         requester_user = db.query(User).filter(User.id == topic_data.requester_user_id).first()
         if not requester_user:
             raise HTTPException(status_code=400, detail="Requester user not found")
-        if not is_customer_role(requester_user):
-            raise HTTPException(status_code=400, detail="Only CUSTOMER users can be requester")
+        # All registered users can be requester (developers can also propose their own topics)
         requester_name = requester_user.name
     else:
         if not topic_data.requester_name or not topic_data.requester_name.strip():

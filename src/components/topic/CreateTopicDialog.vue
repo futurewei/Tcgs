@@ -113,12 +113,7 @@
               :key="user.id"
               :value="user.id"
               :label="user.name"
-            >
-              <div class="flex items-center gap-2">
-                <span>{{ user.name }}</span>
-                <el-tag size="small" type="info">需求方</el-tag>
-              </div>
-            </el-option>
+            />
           </el-select>
         </el-form-item>
 
@@ -228,10 +223,8 @@ function getSlotUsage(slot: CapacitySlot): number {
   return capacityStore.getSlotUsage(slot);
 }
 
-// CUSTOMER users for requester selection (PDU内 + PDU外)
-const eligibleRequesters = computed(() =>
-  usersStore.users.filter(u => ['CUSTOMER_INTERNAL', 'CUSTOMER_EXTERNAL'].includes(u.role))
-);
+// All registered users can be selected as requester
+const eligibleRequesters = computed(() => usersStore.users);
 
 watch(() => props.modelValue, (open) => {
   if (open) {

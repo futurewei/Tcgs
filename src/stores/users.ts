@@ -11,7 +11,7 @@ export const useUsersStore = defineStore('users', () => {
   const loading = ref(false);
   const pagination = ref({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
 
-  async function fetchUsers(page = 1, pageSize = 20) {
+  async function fetchUsers(page = 1, pageSize = 200) {
     loading.value = true;
     try {
       if (DEMO_MODE) {
