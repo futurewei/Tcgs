@@ -60,7 +60,8 @@ def create_template(
             order=stage_data.order if stage_data.order else i,
             is_terminal=stage_data.is_terminal,
             allow_result=stage_data.allow_result,
-            require_artifact=stage_data.require_artifact
+            require_artifact=stage_data.require_artifact,
+            require_review=stage_data.require_review
         )
         db.add(stage)
 
@@ -87,10 +88,34 @@ def update_template(
 
     # Update stages if provided
     if template_data.stages is not None:
+        # Get existing stage IDs
+        existing_stage_ids = [s.id for s in db.query(StageTemplateStage).filter(
+            StageTemplateStage.template_id == template_id
+        ).all()]
+
+        if existing_stage_ids:
+            from ..models.topic import Topic, TopicStageState
+            from ..models.stage_instance import TopicStageInstance
+
+            # Clear current_stage_id from topics that reference these stages
+            db.query(Topic).filter(
+                Topic.current_stage_id.in_(existing_stage_ids)
+            ).update({Topic.current_stage_id: None}, synchronize_session=False)
+
+            # Delete topic_stage_states that reference these stages
+            db.query(TopicStageState).filter(
+                TopicStageState.stage_id.in_(existing_stage_ids)
+            ).delete(synchronize_session=False)
+
+            # Clear template_stage_id from stage instances that reference these stages
+            db.query(TopicStageInstance).filter(
+                TopicStageInstance.template_stage_id.in_(existing_stage_ids)
+            ).update({TopicStageInstance.template_stage_id: None}, synchronize_session=False)
+
         # Delete existing stages
         db.query(StageTemplateStage).filter(
             StageTemplateStage.template_id == template_id
-        ).delete()
+        ).delete(synchronize_session=False)
 
         # Create new stages
         for i, stage_data in enumerate(template_data.stages):
@@ -101,7 +126,8 @@ def update_template(
                 order=stage_data.order if stage_data.order else i,
                 is_terminal=stage_data.is_terminal,
                 allow_result=stage_data.allow_result,
-                require_artifact=stage_data.require_artifact
+                require_artifact=stage_data.require_artifact,
+                require_review=stage_data.require_review
             )
             db.add(stage)
 

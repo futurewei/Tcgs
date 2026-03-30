@@ -89,6 +89,7 @@
                       <el-checkbox v-model="stage.isTerminal">终止阶段</el-checkbox>
                       <el-checkbox v-model="stage.allowResult" :disabled="!stage.isTerminal">允许结项</el-checkbox>
                       <el-checkbox v-model="stage.requireArtifact">需要交付物</el-checkbox>
+                      <el-checkbox v-model="stage.requireReview">评审内容</el-checkbox>
                     </div>
                   </div>
 
@@ -138,6 +139,7 @@ interface StageForm {
   isTerminal: boolean;
   allowResult: boolean;
   requireArtifact: boolean;
+  requireReview: boolean;
 }
 
 const form = reactive({
@@ -160,12 +162,13 @@ function selectTemplate(template: StageTemplate) {
   isCreating.value = false;
   form.name = template.name;
   form.description = template.description;
-  form.stages = template.stages?.map(s => ({
+  form.stages = template.stages?.map((s: any) => ({
     name: s.name,
     description: s.description,
-    isTerminal: s.isTerminal,
-    allowResult: s.allowResult,
-    requireArtifact: s.requireArtifact,
+    isTerminal: s.isTerminal ?? s.is_terminal ?? false,
+    allowResult: s.allowResult ?? s.allow_result ?? false,
+    requireArtifact: s.requireArtifact ?? s.require_artifact ?? false,
+    requireReview: s.requireReview ?? s.require_review ?? false,
   })) || [];
 }
 
@@ -175,14 +178,14 @@ function createNewTemplate() {
   form.name = '';
   form.description = '';
   form.stages = [
-    { name: '问题定义', description: '定义问题和目标', isTerminal: false, allowResult: false, requireArtifact: false },
-    { name: '方案分析', description: '分析可行方案', isTerminal: false, allowResult: false, requireArtifact: true },
-    { name: '结项评审', description: '最终评审', isTerminal: true, allowResult: true, requireArtifact: false },
+    { name: '问题定义', description: '定义问题和目标', isTerminal: false, allowResult: false, requireArtifact: false, requireReview: false },
+    { name: '方案分析', description: '分析可行方案', isTerminal: false, allowResult: false, requireArtifact: true, requireReview: false },
+    { name: '结项评审', description: '最终评审', isTerminal: true, allowResult: true, requireArtifact: false, requireReview: true },
   ];
 }
 
 function addStage() {
-  form.stages.push({ name: '', description: '', isTerminal: false, allowResult: false, requireArtifact: false });
+  form.stages.push({ name: '', description: '', isTerminal: false, allowResult: false, requireArtifact: false, requireReview: false });
 }
 
 function removeStage(index: number) {
@@ -208,7 +211,7 @@ async function saveTemplate() {
       description: form.description,
       stages: form.stages.map((s, i) => ({
         name: s.name, description: s.description, order: i,
-        isTerminal: s.isTerminal, allowResult: s.allowResult, requireArtifact: s.requireArtifact,
+        isTerminal: s.isTerminal, allowResult: s.allowResult, requireArtifact: s.requireArtifact, requireReview: s.requireReview,
       })),
     };
 

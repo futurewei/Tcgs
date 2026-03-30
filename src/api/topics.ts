@@ -46,7 +46,7 @@ function normalizeBinding(b: any) {
 
 function normalizeStageTemplateStage(s: any) {
   if (!s) return s;
-  return { ...s, templateId: s.template_id ?? s.templateId, isTerminal: s.is_terminal ?? s.isTerminal, allowResult: s.allow_result ?? s.allowResult, requireArtifact: s.require_artifact ?? s.requireArtifact };
+  return { ...s, templateId: s.template_id ?? s.templateId, isTerminal: s.is_terminal ?? s.isTerminal, allowResult: s.allow_result ?? s.allowResult, requireArtifact: s.require_artifact ?? s.requireArtifact, requireReview: s.require_review ?? s.requireReview };
 }
 
 function normalizeTemplate(t: any) {
@@ -59,6 +59,16 @@ function normalizeStageState(ss: any) {
   return { ...ss, topicId: ss.topic_id ?? ss.topicId, stageId: ss.stage_id ?? ss.stageId, completedAt: ss.completed_at ?? ss.completedAt, stage: normalizeStageTemplateStage(ss.stage) };
 }
 
+function normalizeReviewComment(r: any) {
+  if (!r) return r;
+  return {
+    ...r,
+    stageInstanceId: r.stage_instance_id ?? r.stageInstanceId,
+    createdBy: normalizeUser(r.created_by ?? r.createdBy),
+    createdAt: r.created_at ?? r.createdAt,
+  };
+}
+
 function normalizeStageInstance(si: any) {
   if (!si) return si;
   return {
@@ -67,6 +77,7 @@ function normalizeStageInstance(si: any) {
     isTerminal: si.is_terminal ?? si.isTerminal,
     allowResult: si.allow_result ?? si.allowResult,
     requireArtifact: si.require_artifact ?? si.requireArtifact,
+    requireReview: si.require_review ?? si.requireReview,
     startedAt: si.started_at ?? si.startedAt,
     completedAt: si.completed_at ?? si.completedAt,
     successCriteria: si.success_criteria ?? si.successCriteria,
@@ -74,8 +85,11 @@ function normalizeStageInstance(si: any) {
     clonedFromId: si.cloned_from_id ?? si.clonedFromId,
     createdAt: si.created_at ?? si.createdAt,
     createdBy: normalizeUser(si.created_by ?? si.createdBy),
-    techPoints: Array.isArray(si.tech_points ?? si.techPoints) 
-      ? (si.tech_points ?? si.techPoints).map(normalizeTechPoint) 
+    techPoints: Array.isArray(si.tech_points ?? si.techPoints)
+      ? (si.tech_points ?? si.techPoints).map(normalizeTechPoint)
+      : [],
+    reviews: Array.isArray(si.reviews)
+      ? si.reviews.map(normalizeReviewComment)
       : [],
   };
 }
@@ -182,9 +196,10 @@ export const topicsApi = {
     return response.data.map(normalizeStageInstance);
   },
 
-  createStageInstance: async (topicId: number, data: { name: string; description?: string; insertAfterId?: number | null }): Promise<any> => {
+  createStageInstance: async (topicId: number, data: { name: string; description?: string; insertAfterId?: number | null; requireReview?: boolean }): Promise<any> => {
     const payload: any = { name: data.name, description: data.description };
     if (data.insertAfterId) payload.insert_after_id = data.insertAfterId;
+    if (data.requireReview !== undefined) payload.require_review = data.requireReview;
     const response = await client.post<any>(`/topics/${topicId}/stages`, payload);
     return normalizeStageInstance(response.data);
   },
@@ -346,5 +361,21 @@ export const topicsApi = {
   // 删除课题级别的技术点/算法思想
   deleteTopicTechPoint: async (topicId: number, pointId: number): Promise<void> => {
     await client.delete(`/topics/${topicId}/tech-points/${pointId}`);
+  },
+
+  // ============ Stage Reviews (评审意见) ============
+
+  listStageReviews: async (topicId: number, stageId: number): Promise<any[]> => {
+    const response = await client.get<any[]>(`/topics/${topicId}/stages/${stageId}/reviews`);
+    return response.data.map(normalizeReviewComment);
+  },
+
+  addStageReview: async (topicId: number, stageId: number, content: string): Promise<any> => {
+    const response = await client.post<any>(`/topics/${topicId}/stages/${stageId}/reviews`, { content });
+    return normalizeReviewComment(response.data);
+  },
+
+  deleteStageReview: async (topicId: number, stageId: number, reviewId: number): Promise<void> => {
+    await client.delete(`/topics/${topicId}/stages/${stageId}/reviews/${reviewId}`);
   },
 };

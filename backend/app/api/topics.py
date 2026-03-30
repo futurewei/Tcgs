@@ -312,6 +312,7 @@ def create_topic(
                 is_terminal=stage.is_terminal,
                 allow_result=stage.allow_result,
                 require_artifact=stage.require_artifact,
+                require_review=stage.require_review,
                 status=StageInstanceStatus.ACTIVE if i == 0 else StageInstanceStatus.PENDING,
                 template_stage_id=stage.id,
                 created_by_id=current_user.id

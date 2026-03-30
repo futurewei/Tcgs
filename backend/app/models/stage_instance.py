@@ -60,6 +60,7 @@ class TopicStageInstance(Base):
     is_terminal = Column(Boolean, default=False)      # 是否是终止阶段
     allow_result = Column(Boolean, default=False)     # 是否允许设置结果
     require_artifact = Column(Boolean, default=False) # 是否需要交付物
+    require_review = Column(Boolean, default=False)   # 是否需要评审内容
     
     # 阶段状态
     status = Column(Enum(StageInstanceStatus), default=StageInstanceStatus.PENDING)

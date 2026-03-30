@@ -361,6 +361,50 @@
             </div>
           </div>
 
+          <!-- 评审意见 -->
+          <div v-if="selectedStage?.requireReview" class="reviews-section">
+            <div class="reviews-header">
+              <h3 class="reviews-title">📝 评审意见</h3>
+            </div>
+
+            <div class="reviews-list">
+              <div v-for="review in stageReviews" :key="review.id" class="review-item">
+                <div class="review-content">
+                  <div class="review-meta">
+                    <span class="review-author">{{ review.createdBy?.name || '未知用户' }}</span>
+                    <span class="review-dot">·</span>
+                    <span class="review-time">{{ formatDateTime(review.createdAt) }}</span>
+                  </div>
+                  <p class="review-text">{{ review.content }}</p>
+                </div>
+                <el-button
+                  v-if="canDeleteReview(review)"
+                  size="small"
+                  type="danger"
+                  text
+                  @click="deleteReview(review.id)"
+                >删除</el-button>
+              </div>
+              <div v-if="!stageReviews.length" class="reviews-empty">
+                <p class="empty-text">暂无评审意见</p>
+              </div>
+            </div>
+
+            <div class="review-input">
+              <el-input
+                v-model="newReviewContent"
+                type="textarea"
+                :rows="2"
+                placeholder="写下你的评审意见..."
+              />
+              <el-button
+                type="primary"
+                :disabled="!newReviewContent.trim()"
+                @click="submitReview"
+              >提交评审</el-button>
+            </div>
+          </div>
+
           <!-- 技术点拆解 -->
           <div class="techpoints-section">
             <div class="techpoints-header">
@@ -437,6 +481,9 @@
             <el-option :value="null" label="插入到开头" />
             <el-option v-for="s in stageInstances" :key="s.id" :value="s.id" :label="`在「${s.name}」之后`" />
           </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-checkbox v-model="newStageForm.requireReview">评审内容</el-checkbox>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -670,13 +717,16 @@ const newRiskForm = ref({
 });
 
 // New stage form
-const newStageForm = ref({ name: '', description: '', insertAfterId: null as number | null });
+const newStageForm = ref({ name: '', description: '', insertAfterId: null as number | null, requireReview: false });
 
 // Edit stage form
 const editStageForm = ref({ name: '', description: '', objective: '', conclusion: '' });
 
 // New tech point form
 const newTechPointForm = ref({ name: '', description: '', firstAuthorId: null as number | null, hypothesis: '' });
+
+// Review
+const newReviewContent = ref('');
 
 // Computed
 const typeLabel = computed(() => topic.value?.type === 'UNCERTAINTY' ? '不确定性' : '演进');
@@ -723,6 +773,8 @@ const stageInstances = computed(() => {
     completedAt: s.completed_at ?? s.completedAt,
     completedBy: s.completed_by ?? s.completedBy,
     completedById: s.completed_by_id ?? s.completedById,
+    requireReview: s.require_review ?? s.requireReview ?? false,
+    reviews: s.reviews ?? [],
     techPoints: (s.tech_points ?? s.techPoints ?? []).map((tp: any) => ({
       ...tp,
       stageId: tp.stage_id ?? tp.stageId,
@@ -754,6 +806,11 @@ const allDeliverables = computed(() => {
 const stageDeliverables = computed(() => {
   if (!selectedStageId.value) return [];
   return allDeliverables.value.filter((d: any) => d.stageInstanceId === selectedStageId.value);
+});
+
+const stageReviews = computed(() => {
+  if (!selectedStage.value) return [];
+  return selectedStage.value.reviews || [];
 });
 
 function getStageDeliverables(stageId: number) {
@@ -899,15 +956,16 @@ async function createStage() {
       name: newStageForm.value.name,
       description: newStageForm.value.description,
       insertAfterId: newStageForm.value.insertAfterId || undefined,
+      requireReview: newStageForm.value.requireReview,
     });
     await refreshTopic();
     showAddStage.value = false;
-    newStageForm.value = { name: '', description: '', insertAfterId: null };
+    newStageForm.value = { name: '', description: '', insertAfterId: null, requireReview: false };
     ElMessage.success('阶段创建成功');
     await refreshTopic();
 } catch (err: any) {
       console.error('Create stage error:', err);
-      ElMessage.error(err?.response?.data?.detail || err?.message || '创建失败');  
+      ElMessage.error(err?.response?.data?.detail || err?.message || '创建失败');
   }
 }
 
@@ -1192,6 +1250,33 @@ async function deleteDeliverable(id: number) {
   try {
     await ElMessageBox.confirm('确定删除此交付物？', '删除', { type: 'warning' });
     await topicsApi.deleteDeliverable(id);
+    await refreshTopic();
+    ElMessage.success('已删除');
+  } catch {}
+}
+
+// Reviews
+function canDeleteReview(review: any) {
+  return authStore.isAdmin || review.createdBy?.id === authStore.user?.id;
+}
+
+async function submitReview() {
+  if (!newReviewContent.value.trim() || !selectedStageId.value) return;
+  try {
+    await topicsApi.addStageReview(topicId.value, selectedStageId.value, newReviewContent.value);
+    newReviewContent.value = '';
+    await refreshTopic();
+    ElMessage.success('评审意见已提交');
+  } catch {
+    ElMessage.error('提交失败');
+  }
+}
+
+async function deleteReview(reviewId: number) {
+  if (!selectedStageId.value) return;
+  try {
+    await ElMessageBox.confirm('确定删除此评审意见？', '删除', { type: 'warning' });
+    await topicsApi.deleteStageReview(topicId.value, selectedStageId.value, reviewId);
     await refreshTopic();
     ElMessage.success('已删除');
   } catch {}
@@ -2096,6 +2181,76 @@ watch(topicId, async (id) => {
   font-size: var(--text-xs);
   color: var(--color-text-disabled);
   margin: var(--space-1) 0 0 0;
+}
+
+/* ============ Reviews Section ============ */
+.reviews-section {
+  border-top: 1px solid var(--color-border-light);
+  padding-top: var(--space-5);
+}
+.reviews-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+.reviews-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+.reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.review-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: var(--space-3);
+  background: var(--color-neutral-50);
+  border-radius: var(--radius-md);
+}
+.review-content {
+  flex: 1;
+}
+.review-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xs);
+}
+.review-author {
+  font-weight: var(--font-medium);
+  color: var(--color-primary);
+}
+.review-dot {
+  color: var(--color-text-disabled);
+}
+.review-time {
+  color: var(--color-text-tertiary);
+}
+.review-text {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+  white-space: pre-wrap;
+}
+.reviews-empty {
+  text-align: center;
+  padding: var(--space-4);
+}
+.review-input {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+.review-input .el-textarea {
+  flex: 1;
 }
 
 /* ============ Tech Points Section ============ */

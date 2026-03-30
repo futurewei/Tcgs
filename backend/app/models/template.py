@@ -29,6 +29,7 @@ class StageTemplateStage(Base):
     is_terminal = Column(Boolean, default=False)
     allow_result = Column(Boolean, default=False)
     require_artifact = Column(Boolean, default=False)
+    require_review = Column(Boolean, default=False)
 
     # Relationships
     template = relationship("StageTemplate", back_populates="stages")

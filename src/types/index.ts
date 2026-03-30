@@ -32,6 +32,7 @@ export interface StageTemplateStage {
   isTerminal: boolean;
   allowResult: boolean;
   requireArtifact: boolean;
+  requireReview: boolean;
 }
 
 export interface StageTemplate {
@@ -415,6 +416,14 @@ export interface TechPoint {
   createdAt?: string;
 }
 
+export interface StageInstanceReviewComment {
+  id: number;
+  stageInstanceId: number;
+  content: string;
+  createdBy: User;
+  createdAt: string;
+}
+
 export interface StageInstance {
   id: number;
   topicId: number;
@@ -424,6 +433,7 @@ export interface StageInstance {
   isTerminal: boolean;
   allowResult: boolean;
   requireArtifact: boolean;
+  requireReview: boolean;
   status: StageInstanceStatus;
   startedAt?: string;
   completedAt?: string;
@@ -436,6 +446,7 @@ export interface StageInstance {
   createdAt?: string;
   techPoints?: TechPoint[];
   deliverables?: StageDeliverable[];
+  reviews?: StageInstanceReviewComment[];
 }
 
 

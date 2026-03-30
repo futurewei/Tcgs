@@ -88,6 +88,17 @@ class TechPointResponse(BaseModel):
         from_attributes = True
 
 
+class ReviewCommentResponse(BaseModel):
+    id: int
+    stage_instance_id: Optional[int] = None
+    content: str
+    created_by: Optional[UserResponse] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 class StageInstanceResponse(BaseModel):
     id: int
     topic_id: int
@@ -97,6 +108,7 @@ class StageInstanceResponse(BaseModel):
     is_terminal: bool
     allow_result: bool
     require_artifact: bool
+    require_review: bool = False
     status: str
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
@@ -111,6 +123,7 @@ class StageInstanceResponse(BaseModel):
     created_by: Optional[UserResponse] = None
     created_at: Optional[datetime] = None
     tech_points: List[TechPointResponse] = []
+    reviews: List[ReviewCommentResponse] = []
 
     class Config:
         from_attributes = True

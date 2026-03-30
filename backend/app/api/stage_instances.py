@@ -17,6 +17,7 @@ import json
 from ..database import get_db
 from ..models import Topic, TopicStageInstance, StageInstanceStatus, TechPoint, TechPointContributor, User, AuditLog
 from ..models.audit import AuditAction
+from ..models.review import ReviewComment
 from ..services.auth import get_current_user
 
 router = APIRouter(prefix="/topics/{topic_id}/stages", tags=["stage-instances"])
@@ -31,6 +32,7 @@ class StageInstanceCreate(BaseModel):
     is_terminal: bool = False
     allow_result: bool = False
     require_artifact: bool = False
+    require_review: bool = False
     objective: Optional[str] = None
     success_criteria: Optional[str] = None
     failure_criteria: Optional[str] = None
@@ -43,12 +45,17 @@ class StageInstanceUpdate(BaseModel):
     is_terminal: Optional[bool] = None
     allow_result: Optional[bool] = None
     require_artifact: Optional[bool] = None
+    require_review: Optional[bool] = None
     objective: Optional[str] = None
     success_criteria: Optional[Any] = None  # JSON array for checklist
     failure_criteria: Optional[Any] = None  # JSON array for checklist
     required_outputs: Optional[Any] = None  # JSON array for output list
     conclusion: Optional[str] = None
     status: Optional[str] = None
+
+
+class ReviewCommentCreate(BaseModel):
+    content: str
 
 
 class StageCompleteRequest(BaseModel):
@@ -160,6 +167,7 @@ def create_stage_instance(
         is_terminal=data.is_terminal,
         allow_result=data.allow_result,
         require_artifact=data.require_artifact,
+        require_review=data.require_review,
         objective=data.objective,
         success_criteria=data.success_criteria,
         failure_criteria=data.failure_criteria,
@@ -630,6 +638,7 @@ def copy_stage(
         is_terminal=source.is_terminal,
         allow_result=source.allow_result,
         require_artifact=source.require_artifact,
+        require_review=source.require_review,
         objective=source.objective,
         success_criteria=source.success_criteria,
         failure_criteria=source.failure_criteria,
@@ -684,6 +693,108 @@ def activate_stage(
     db.refresh(stage)
     
     return _serialize_stage_instance(stage, db=db)
+
+
+# ============ Review Comment Routes ============
+
+@router.get("/{stage_id}/reviews")
+def list_stage_reviews(
+    topic_id: int,
+    stage_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取阶段的所有评审意见"""
+    stage = db.query(TopicStageInstance).filter(
+        TopicStageInstance.id == stage_id,
+        TopicStageInstance.topic_id == topic_id
+    ).first()
+    if not stage:
+        raise HTTPException(status_code=404, detail="阶段不存在")
+
+    reviews = db.query(ReviewComment).filter(
+        ReviewComment.stage_instance_id == stage_id
+    ).order_by(ReviewComment.created_at.desc()).all()
+
+    result = []
+    for r in reviews:
+        user_data = None
+        if r.created_by:
+            user_data = {"id": r.created_by.id, "name": r.created_by.name}
+        result.append({
+            "id": r.id,
+            "stageInstanceId": r.stage_instance_id,
+            "content": r.content,
+            "createdBy": user_data,
+            "createdAt": r.created_at.isoformat() if r.created_at else None,
+        })
+
+    return result
+
+
+@router.post("/{stage_id}/reviews")
+def create_stage_review(
+    topic_id: int,
+    stage_id: int,
+    data: ReviewCommentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """添加评审意见"""
+    stage = db.query(TopicStageInstance).filter(
+        TopicStageInstance.id == stage_id,
+        TopicStageInstance.topic_id == topic_id
+    ).first()
+    if not stage:
+        raise HTTPException(status_code=404, detail="阶段不存在")
+
+    review = ReviewComment(
+        topic_id=topic_id,
+        stage_instance_id=stage_id,
+        content=data.content,
+        created_by_id=current_user.id
+    )
+    db.add(review)
+    db.commit()
+    db.refresh(review)
+
+    user_data = None
+    if review.created_by:
+        user_data = {"id": review.created_by.id, "name": review.created_by.name}
+
+    return {
+        "id": review.id,
+        "stageInstanceId": review.stage_instance_id,
+        "content": review.content,
+        "createdBy": user_data,
+        "createdAt": review.created_at.isoformat() if review.created_at else None,
+    }
+
+
+@router.delete("/{stage_id}/reviews/{review_id}")
+def delete_stage_review(
+    topic_id: int,
+    stage_id: int,
+    review_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """删除评审意见"""
+    review = db.query(ReviewComment).filter(
+        ReviewComment.id == review_id,
+        ReviewComment.stage_instance_id == stage_id
+    ).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="评审意见不存在")
+
+    # 只有创建者或管理员可以删除
+    if review.created_by_id != current_user.id and current_user.role != 'ADMIN':
+        raise HTTPException(status_code=403, detail="无权删除此评审意见")
+
+    db.delete(review)
+    db.commit()
+
+    return {"success": True}
 
 
 # ============ Tech Point Routes ============
@@ -860,6 +971,30 @@ def _serialize_stage_instance(stage: TopicStageInstance, include_tech_points: bo
             if user:
                 completed_by_data = {"id": user.id, "name": user.name}
 
+    # Serialize reviews if require_review is enabled
+    reviews_data = []
+    if getattr(stage, 'require_review', False):
+        try:
+            for r in stage.reviews:
+                review_user = None
+                try:
+                    if r.created_by:
+                        review_user = {"id": r.created_by.id, "name": r.created_by.name}
+                except Exception:
+                    if db and r.created_by_id:
+                        user = db.query(User).filter(User.id == r.created_by_id).first()
+                        if user:
+                            review_user = {"id": user.id, "name": user.name}
+                reviews_data.append({
+                    "id": r.id,
+                    "stageInstanceId": r.stage_instance_id,
+                    "content": r.content,
+                    "createdBy": review_user,
+                    "createdAt": r.created_at.isoformat() if r.created_at else None,
+                })
+        except Exception:
+            pass
+
     result = {
         "id": stage.id,
         "topicId": stage.topic_id,
@@ -869,6 +1004,7 @@ def _serialize_stage_instance(stage: TopicStageInstance, include_tech_points: bo
         "isTerminal": stage.is_terminal,
         "allowResult": stage.allow_result,
         "requireArtifact": stage.require_artifact,
+        "requireReview": stage.require_review,
         "status": stage.status.value if stage.status else "pending",
         "startedAt": stage.started_at.isoformat() if stage.started_at else None,
         "completedAt": stage.completed_at.isoformat() if stage.completed_at else None,
@@ -884,6 +1020,7 @@ def _serialize_stage_instance(stage: TopicStageInstance, include_tech_points: bo
         "clonedFromId": stage.cloned_from_id,
         "createdAt": stage.created_at.isoformat() if stage.created_at else None,
         "createdBy": created_by_data,
+        "reviews": reviews_data,
     }
 
     if include_tech_points:
