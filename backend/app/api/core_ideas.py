@@ -213,15 +213,24 @@ def update_idea(
     if data.title is not None:
         idea.title = data.title
     if data.idea_type is not None:
-        try:
-            idea.idea_type = IdeaType(data.idea_type)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid idea type")
+        # IdeaType 是普通类，直接赋值字符串
+        valid_types = [
+            IdeaType.PROBLEM_REDEFINE, IdeaType.ALGORITHM_HYPOTHESIS,
+            IdeaType.MODEL_STRUCTURE, IdeaType.PARAMETER_STRATEGY,
+            IdeaType.DATA_PERSPECTIVE, IdeaType.ENGINEERING_TRADEOFF
+        ]
+        if data.idea_type not in valid_types:
+            raise HTTPException(status_code=400, detail=f"Invalid idea type: {data.idea_type}")
+        idea.idea_type = data.idea_type
     if data.status is not None:
-        try:
-            idea.status = IdeaStatus(data.status)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid status")
+        # IdeaStatus 是普通类，直接赋值字符串
+        valid_statuses = [
+            IdeaStatus.HYPOTHESIZING, IdeaStatus.VERIFIED,
+            IdeaStatus.REJECTED, IdeaStatus.SUPERSEDED
+        ]
+        if data.status not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {data.status}")
+        idea.status = data.status
     if data.idea_body is not None:
         idea.idea_body = data.idea_body
     if data.motivation is not None:

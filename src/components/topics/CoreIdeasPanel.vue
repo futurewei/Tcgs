@@ -15,9 +15,9 @@
     <!-- Ideas List -->
     <div class="p-4">
       <div v-if="ideas.length" class="space-y-3">
-        <div 
-          v-for="idea in ideas" 
-          :key="idea.id" 
+        <div
+          v-for="idea in ideas"
+          :key="idea.id"
           class="p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md"
           :class="[
             idea.status === 'verified' ? 'bg-emerald-50 border-emerald-200' :
@@ -27,17 +27,20 @@
           ]"
           @click="openEditDialog(idea)"
         >
+          <!-- 录入者信息：放在前面更醒目 -->
+          <div class="flex items-center gap-2 mb-2 text-xs">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">
+              <span class="font-medium">{{ idea.proposerName }}</span>
+            </span>
+            <span class="text-zinc-400">{{ formatDate(idea.createdAt) }} 录入</span>
+            <el-tag :type="getStatusType(idea.status)" size="small" class="ml-auto">
+              {{ getStatusLabel(idea.status) }}
+            </el-tag>
+          </div>
           <div class="flex items-start justify-between gap-2">
             <div class="flex-1 min-w-0">
               <h4 class="font-medium text-zinc-800">{{ idea.title }}</h4>
               <p v-if="idea.ideaBody" class="text-sm text-zinc-600 mt-1 line-clamp-2">{{ idea.ideaBody }}</p>
-            </div>
-            <div class="text-right text-xs text-zinc-400 flex-shrink-0">
-              <el-tag :type="getStatusType(idea.status)" size="small">
-                {{ getStatusLabel(idea.status) }}
-              </el-tag>
-              <div class="mt-1">{{ idea.proposerName }}</div>
-              <div class="mt-0.5">{{ formatDate(idea.createdAt) }}</div>
             </div>
           </div>
         </div>

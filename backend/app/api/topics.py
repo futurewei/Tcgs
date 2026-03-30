@@ -394,23 +394,15 @@ def update_topic(
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
 
-    # 权限：ADMIN 或 当前 DRI
-    dri_binding = next((b for b in (topic.bindings or []) if b.is_dri), None)
-    is_dri = bool(dri_binding and dri_binding.slot and dri_binding.slot.user_id == current_user.id)
-
-    if current_user.role != UserRole.ADMIN and not is_dri:
-        raise HTTPException(status_code=403, detail="Not authorized")
-
     old_values = {}
 
     # =========================
-    # Result change
+    # Result change - 只有 ADMIN 可以操作
     # =========================
     if topic_data.result is not None and topic_data.result != topic.result:
-        # ✅ 非 admin 严格卡阶段；admin bypass（可强制结项）
-        if not _is_admin(current_user):
-            if not _can_non_admin_change_result(topic):
-                raise HTTPException(status_code=403, detail="当前阶段不允许结项（仅管理员可强制结项）")
+        # ✅ result 变更（标记已解决/无法完成）只允许 ADMIN
+        if current_user.role != UserRole.ADMIN:
+            raise HTTPException(status_code=403, detail="只有管理员可以变更课题状态（已解决/无法完成）")
 
         old_result = topic.result
         old_values["result"] = old_result.value
@@ -436,7 +428,7 @@ def update_topic(
         )
 
     # =========================
-    # Other fields
+    # Other fields - 所有登录用户（非 CUSTOMER）可以操作
     # =========================
     if topic_data.title is not None:
         topic.title = topic_data.title

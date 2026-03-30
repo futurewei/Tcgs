@@ -20,7 +20,8 @@
             <p class="topic-id">编号: {{ topic.id }}</p>
           </div>
         <div class="header-result">
-    <el-dropdown trigger="click" @command="onHeaderResultChange">
+    <!-- 只有 ADMIN 可以变更课题状态 -->
+    <el-dropdown v-if="canChangeResult" trigger="click" @command="onHeaderResultChange">
       <div class="header-result-clickable">
         <span :class="['result-badge', `result-${topic.result?.toLowerCase()}`]">
         {{ resultLabel }}
@@ -36,6 +37,10 @@
       </el-dropdown-menu>
     </template>
   </el-dropdown>
+  <!-- 非 ADMIN 用户只能查看状态 -->
+  <span v-else :class="['result-badge', `result-${topic.result?.toLowerCase()}`]">
+    {{ resultLabel }}
+  </span>
 </div>
 	</div>
         
@@ -677,7 +682,10 @@ const requesterName = computed(() => {
   return t?.requesterName ?? t?.requester_name ?? '';
 });
 
-const canEdit = computed(() => authStore.isAdmin || authStore.isMember);
+// 所有登录用户（非 CUSTOMER）都可以编辑课题内容（背景、目标、风险、演进等）
+const canEdit = computed(() => authStore.canEditTopic);
+// 只有 ADMIN 可以变更课题状态（标记已解决/无法完成）
+const canChangeResult = computed(() => authStore.isAdmin);
 
 const normalizedBindings = computed<Binding[]>(() => {
   const t: any = topic.value;

@@ -13,8 +13,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value && !!user.value);
   const isAdmin = computed(() => user.value?.role === 'ADMIN');
+  const isMember = computed(() => user.value?.role === 'MEMBER');
+  const isReviewer = computed(() => user.value?.role === 'REVIEWER');
   const isExternal = computed(() => user.value?.role === 'EXTERNAL');
   const isCustomer = computed(() => user.value?.role === 'CUSTOMER');
+  // 是否可以编辑课题内容（非 CUSTOMER 的已登录用户）
+  const canEditTopic = computed(() => !!user.value && user.value.role !== 'CUSTOMER');
 
   async function login(email: string, password: string) {
     loading.value = true;
@@ -82,8 +86,11 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     isAuthenticated,
     isAdmin,
+    isMember,
+    isReviewer,
     isExternal,
     isCustomer,
+    canEditTopic,
     login,
     fetchUser,
     logout,
