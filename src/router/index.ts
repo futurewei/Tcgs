@@ -38,6 +38,16 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/capacity/CapacityView.vue'),
       },
       {
+        path: 'capability-shelf',
+        name: 'capability-shelf',
+        component: () => import('@/views/capability/CapabilityShelfView.vue'),
+      },
+      {
+        path: 'responsibility-field',
+        name: 'responsibility-field',
+        component: () => import('@/views/responsibility/ResponsibilityFieldView.vue'),
+      },
+      {
         path: 'wiki',
         name: 'wiki',
         component: () => import('@/views/wiki/WikiView.vue'),
