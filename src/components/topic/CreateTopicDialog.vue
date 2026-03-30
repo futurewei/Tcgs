@@ -136,10 +136,11 @@
 
       <!-- Template Preview -->
       <div v-if="selectedTemplate" class="mt-4 p-4 bg-zinc-50 rounded-lg">
-        <p class="text-sm font-medium text-zinc-700 mb-2">阶段预览:</p>
+        <p class="text-sm font-medium text-zinc-700 mb-2">阶段预览 ({{ selectedTemplate.stages?.length || 0 }} 个阶段):</p>
         <StageTimeline
           :stages="selectedTemplate.stages"
-          :compact="false"
+          :compact="true"
+          :wrap="true"
         />
       </div>
     </el-form>

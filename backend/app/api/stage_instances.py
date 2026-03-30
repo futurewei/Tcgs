@@ -12,9 +12,11 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List, Any
 from datetime import datetime
+import json
 
 from ..database import get_db
 from ..models import Topic, TopicStageInstance, StageInstanceStatus, TechPoint, TechPointContributor, User, AuditLog
+from ..models.audit import AuditAction
 from ..services.auth import get_current_user
 
 router = APIRouter(prefix="/topics/{topic_id}/stages", tags=["stage-instances"])
@@ -170,10 +172,10 @@ def create_stage_instance(
     # 审计日志
     db.add(AuditLog(
         user_id=current_user.id,
-        action="stage_create",
-        entity_type="stage_instance",
+        action=AuditAction.STAGE_CHANGE,
+        entity_type="TopicStageInstance",
         entity_id=stage.id,
-        details={"topic_id": topic_id, "name": data.name}
+        new_value=json.dumps({"action": "create", "topic_id": topic_id, "name": data.name})
     ))
     db.commit()
     db.refresh(stage)
@@ -254,10 +256,10 @@ def delete_stage_instance(
     # 审计日志
     db.add(AuditLog(
         user_id=current_user.id,
-        action="stage_delete",
-        entity_type="stage_instance",
+        action=AuditAction.STAGE_CHANGE,
+        entity_type="TopicStageInstance",
         entity_id=stage_id,
-        details={"topic_id": topic_id, "name": stage.name}
+        new_value=json.dumps({"action": "delete", "topic_id": topic_id, "name": stage.name})
     ))
     
     db.delete(stage)
@@ -373,15 +375,16 @@ def complete_stage(
     # 审计日志
     db.add(AuditLog(
         user_id=current_user.id,
-        action="stage_complete",
+        action=AuditAction.STAGE_CHANGE,
         entity_type="TopicStageInstance",
         entity_id=stage_id,
-        details={
-            "topic_id": topic_id, 
+        new_value=json.dumps({
+            "action": "complete",
+            "topic_id": topic_id,
             "name": stage.name,
             "completion_note": data.completion_note,
             "remaining_issues": data.remaining_issues
-        }
+        })
     ))
     
     db.commit()
@@ -416,10 +419,10 @@ def reopen_stage(
     # 审计日志
     db.add(AuditLog(
         user_id=current_user.id,
-        action="stage_reopen",
+        action=AuditAction.STAGE_CHANGE,
         entity_type="TopicStageInstance",
         entity_id=stage_id,
-        details={"topic_id": topic_id, "name": stage.name}
+        new_value=json.dumps({"action": "reopen", "topic_id": topic_id, "name": stage.name})
     ))
     
     db.commit()
@@ -531,14 +534,15 @@ def move_stage(
     # 审计日志
     db.add(AuditLog(
         user_id=current_user.id,
-        action=action,
+        action=AuditAction.STAGE_CHANGE,
         entity_type="TopicStageInstance",
         entity_id=stage_id,
-        details={
-            "topic_id": topic_id, 
+        new_value=json.dumps({
+            "action": action,
+            "topic_id": topic_id,
             "name": stage.name,
             "direction": data.direction
-        }
+        })
     ))
     
     db.commit()
@@ -639,10 +643,10 @@ def copy_stage(
     # 审计日志
     db.add(AuditLog(
         user_id=current_user.id,
-        action="stage_copy",
-        entity_type="stage_instance",
+        action=AuditAction.STAGE_CHANGE,
+        entity_type="TopicStageInstance",
         entity_id=new_stage.id,
-        details={"topic_id": topic_id, "source_id": source.id}
+        new_value=json.dumps({"action": "copy", "topic_id": topic_id, "source_id": source.id})
     ))
     db.commit()
     

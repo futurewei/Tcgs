@@ -1,5 +1,5 @@
 <template>
-  <div class="flex items-center gap-1">
+  <div :class="['flex items-center gap-1', wrap ? 'flex-wrap gap-y-2' : '']">
     <template v-for="(stage, index) in stages" :key="stage.id">
       <el-tooltip :content="getStageTooltip(stage)" placement="top">
         <div
@@ -18,14 +18,14 @@
               isStageActive(stage) ? 'bg-white animate-pulse' : 'bg-current opacity-40'
             ]"
           />
-          
+
           <span v-if="!compact" class="font-medium truncate max-w-[100px]">{{ stage.name }}</span>
           <span v-else class="font-medium">{{ getStageAbbr(stage.name) }}</span>
 
           <el-icon v-if="isStageCompleted(stage)" class="ml-1.5 flex-shrink-0" :size="compact ? 12 : 14">
             <Check />
           </el-icon>
-          
+
           <!-- Terminal stage indicator -->
           <el-icon v-if="!compact && stage.isTerminal && !isStageCompleted(stage)" class="ml-1 flex-shrink-0 opacity-60" :size="12">
             <Flag />
@@ -33,9 +33,9 @@
         </div>
       </el-tooltip>
 
-      <!-- Connector line -->
+      <!-- Connector line (hide when wrapping to avoid visual clutter) -->
       <div
-        v-if="index < stages.length - 1"
+        v-if="index < stages.length - 1 && !wrap"
         :class="[
           'flex-shrink-0 transition-all duration-300',
           compact ? 'w-3' : 'w-6',
@@ -43,6 +43,11 @@
           getConnectorClass(index)
         ]"
       />
+      <!-- Small arrow for wrapped layout -->
+      <span
+        v-if="index < stages.length - 1 && wrap"
+        class="text-zinc-300 text-xs"
+      >→</span>
     </template>
   </div>
 </template>
@@ -57,6 +62,7 @@ const props = defineProps<{
   stageStates?: TopicStageState[];
   currentStageId?: number;
   compact?: boolean;
+  wrap?: boolean;  // Allow stages to wrap to next line
 }>();
 
 defineEmits<{
