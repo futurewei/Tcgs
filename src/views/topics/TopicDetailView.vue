@@ -192,6 +192,11 @@
                   <span v-if="getStageDeliverables(stage.id).length">📎 {{ getStageDeliverables(stage.id).length }}</span>
                   <span v-if="stage.techPoints?.length">🔧 {{ stage.techPoints.length }}</span>
                 </div>
+                <!-- 完成者信息 -->
+                <div v-if="stage.status === 'done' && (stage.completedBy || stage.completed_by)" class="stage-completed-info">
+                  <span class="completed-by-name">{{ stage.completedBy?.name || stage.completed_by?.name }}</span>
+                  <span class="completed-at-time">{{ formatDate(stage.completedAt || stage.completed_at) }}</span>
+                </div>
               </div>
               <div v-if="idx < stageInstances.length - 1" class="timeline-connector">
                 <el-icon><Right /></el-icon>
@@ -715,6 +720,9 @@ const stageInstances = computed(() => {
   return (t?.stageInstances || t?.stage_instances || []).map((s: any) => ({
     ...s,
     topicId: s.topic_id ?? s.topicId,
+    completedAt: s.completed_at ?? s.completedAt,
+    completedBy: s.completed_by ?? s.completedBy,
+    completedById: s.completed_by_id ?? s.completedById,
     techPoints: (s.tech_points ?? s.techPoints ?? []).map((tp: any) => ({
       ...tp,
       stageId: tp.stage_id ?? tp.stageId,
@@ -1707,6 +1715,25 @@ watch(topicId, async (id) => {
   gap: var(--space-2);
   margin-top: var(--space-2);
   font-size: var(--text-xs);
+  color: var(--color-text-disabled);
+}
+
+/* 阶段完成者信息 */
+.stage-completed-info {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border-light);
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stage-completed-info .completed-by-name {
+  color: var(--color-stage-done);
+  font-weight: var(--font-medium);
+}
+.stage-completed-info .completed-at-time {
   color: var(--color-text-disabled);
 }
 

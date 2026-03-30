@@ -88,7 +88,7 @@ def _get_topic_with_relations(db: Session, topic_id: int):
         joinedload(Topic.requester_user),
         joinedload(Topic.template).joinedload(StageTemplate.stages),
         joinedload(Topic.stage_states).joinedload(TopicStageState.stage),
-        joinedload(Topic.stage_instances),
+        joinedload(Topic.stage_instances).joinedload(TopicStageInstance.completed_by),
         joinedload(Topic.artifacts).joinedload(Artifact.created_by),
         joinedload(Topic.reviews).joinedload(ReviewComment.created_by),
         joinedload(Topic.bindings).joinedload(Binding.slot).joinedload(CapacitySlot.user),
@@ -508,6 +508,7 @@ def advance_stage(
         if cur_inst:
             cur_inst.status = StageInstanceStatus.DONE
             cur_inst.completed_at = datetime.utcnow()
+            cur_inst.completed_by_id = current_user.id
 
     # 2) 目标 instance -> ACTIVE
     # stage_id 是模板 stage id，所以要通过 template_stage_id 找对应 instance

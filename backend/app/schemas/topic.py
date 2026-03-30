@@ -100,6 +100,8 @@ class StageInstanceResponse(BaseModel):
     status: str
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    completed_by_id: Optional[int] = None
+    completed_by: Optional[UserResponse] = None
     objective: Optional[str] = None
     success_criteria: Optional[Any] = None  # JSON array for checklist
     failure_criteria: Optional[Any] = None  # JSON array for checklist

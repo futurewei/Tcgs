@@ -224,6 +224,7 @@ def update_stage_instance(
             stage.started_at = datetime.utcnow()
         elif new_status == StageInstanceStatus.DONE and stage.status != StageInstanceStatus.DONE:
             stage.completed_at = datetime.utcnow()
+            stage.completed_by_id = current_user.id
         update_data["status"] = new_status
     
     for key, value in update_data.items():
