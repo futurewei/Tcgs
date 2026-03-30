@@ -1,174 +1,340 @@
-AlgoHub – 算法能力中台
+# TCGS - 课题治理系统 (Topic & Capacity Governance System)
 
-AlgoHub 是一个面向算法团队的能力管理与协作系统，核心目标是：
+TCGS 是一个面向算法团队的课题治理与能力管理系统，将"课题/项目"与"人、阶段、产出、容量"统一管理，让技术工作从「隐性经验」变成「可管理结构」。
 
-把"课题 / 项目"与"人、阶段、产出、容量"放在同一个可视化系统中，
-让技术工作从「隐性经验」变成「可管理结构」。
+## 技术栈
 
-它并不是传统意义上的 Jira / Trello / Asana，而是更偏向 算法能力管理 + 人力容量管理 + 决策过程可追溯 的系统。
+**前端**
+- Vue 3 + TypeScript
+- Element Plus
+- Pinia (状态管理)
+- Vite
+- TailwindCSS
 
-⸻
+**后端**
+- Python + FastAPI
+- SQLAlchemy ORM
+- PostgreSQL
+- Alembic (数据库迁移)
+- JWT 鉴权
+- MinIO (文件存储)
 
-✨ 核心理念
-	•	技术工作 ≠ 简单任务堆叠
-	•	真正重要的是：
-	•	课题从哪里来
-	•	由谁负责
-	•	经过了哪些阶段
-	•	产出了什么
-	•	消耗了多少真实能力
+**部署**
+- Docker + Docker Compose
+- Nginx (前端反向代理)
 
-AlgoHub 尝试用结构化模型回答这些问题。
+---
 
-⸻
+## 核心功能
 
-🧠 核心能力概览
+### 1. 课题 (Topic) 管理
+- 课题类型：Uncertainty（探索型）/ Evolution（演进型）
+- 紧急程度：P0 / P1 / P2
+- DRI (直接责任人) 机制
+- 委托人/来源人管理
 
-1. Topic（课题 / 项目）治理
+### 2. 阶段化流程 (Stage Workflow)
+- 可自定义阶段模板
+- 阶段状态可视化 (pending / active / done)
+- 阶段推进/回退
+- 阶段交付物要求
+- 阶段评审意见
 
-每一个 Topic 都不是“随便建一个任务”，而是一个有生命周期的技术对象：
-	•	明确的 课题类型
-	•	Uncertainty（探索型 / 不确定性）
-	•	Evolution（演进型 / 工程推进）
-	•	明确的 紧急程度（P0 / P1 / P2）
-	•	明确的 DRI（Directly Responsible Individual）
-	•	明确的 委托人 / 来源人（Requester）
-	•	可绑定系统内 CUSTOMER 用户
-	•	也可记录外部 / 未注册委托人（仅记录名称，不绑定账号）
+### 3. 产出与评审 (Artifact & Review)
+- 每阶段可上传交付物
+- 支持多种交付物类型 (文档/链接/文件)
+- 评审意见记录
 
-⸻
+### 4. 能力槽位 (Capacity Slot)
+- Algo / External 不同类型槽位
+- 课题绑定容量占比
+- 负载可视化
 
-2. Stage Workflow（阶段化流程）
+### 5. 数据洞察 (Insights)
+- KPI 统计
+- 人员负载分析
+- 课题吞吐量
 
-每个 Topic 绑定一个 阶段模板（Stage Template），例如：
-	•	Definition → Analysis → Implementation → Closure
-	•	POC / 快速验证流程等
+### 6. 用户角色
+| 角色 | 说明 |
+|------|------|
+| Admin | 系统管理员，全权限 |
+| Member | 技术成员，可创建和推进课题 |
+| Reviewer | 评审角色 |
+| External | 外部协作者 |
+| Customer | 委托人/需求方，只读 |
 
-系统能力包括：
-	•	当前所处阶段可视化
-	•	阶段推进（Advance）
-	•	每个阶段的状态记录（pending / active / done）
-	•	阶段是否要求产出（Artifact）
-	•	终态阶段是否允许结论（Result）
+---
 
-这使得“项目进行到哪一步”不再靠口头同步。
+## 快速启动
 
-⸻
+### Docker 模式（推荐）
 
-3. Artifact & Review（产出与评审）
-	•	每个阶段可以产生 Artifact
-	•	文档
-	•	方案说明
-	•	实现结果
-	•	支持 Review 评论
-	•	所有操作都有用户与时间记录
+```bash
+# 首次启动（构建镜像）
+docker-compose up -d --build
 
-👉 形成可回溯的技术决策链路。
+# 重新构建（无缓存）
+docker-compose build --no-cache
+docker-compose up -d
 
-4. Capacity（能力 / 人力槽位）
+# 仅重建前端（无缓存）
+docker-compose build --no-cache frontend
+docker-compose up -d frontend
 
-AlgoHub 引入了一个核心概念：Capacity Slot
-	•	Algo / External 等不同类型槽位
-	•	每个槽位有总容量（例如 100%）
-	•	Topic 可绑定容量
-	•	用于表达：
-	•	谁在被占用
-	•	占用强度如何
-	•	是否已超载
+# 仅重建后端（无缓存）
+docker-compose build --no-cache backend
+docker-compose up -d backend
 
-这不是 HR 系统，而是 工程现实世界的能力建模。
+# 查看服务状态
+docker-compose ps
 
-⸻
+# 查看日志
+docker-compose logs -f           # 所有服务
+docker-compose logs -f backend   # 仅后端
+docker-compose logs -f frontend  # 仅前端
 
-5. 用户角色与权限模型
+# 停止所有服务
+docker-compose down
 
-系统内置多角色体系：
-| **角色**     | **说明**                      |
-| ------------ | ----------------------------- |
-| Admin        | 系统管理、用户管理、全权限    |
-| Member       | 技术成员，可创建和推进课题    |
-| Reviewer     | 评审角色                      |
-| External     | 外部协作者（有限能力）        |
-| **Customer** | **委托人 / 需求方，只读浏览** |
-
-Customer 角色特点：
-	•	❌ 不能创建 / 修改 Topic
-	•	❌ 不能推进阶段、创建 Artifact
-	•	❌ 不能绑定 Capacity
-	•	✅ 可以登录系统
-	•	✅ 可以查看自己相关的 Topic
-	•	✅ 作为 Topic 的“委托人 / 来源人”被记录
-
-⸻
-
-🖥️ 前端功能
-	•	Dashboard：
-	•	不同类型 Topic 池
-	•	当前阶段可视化（Stage Timeline）
-	•	容量槽位概览
-	•	Topic 列表 & 详情页
-	•	Topic 创建 / 编辑（权限控制）
-	•	User Management（用户管理）
-	•	Capacity 管理
-
-技术栈：
-	•	Vue 3 + TypeScript
-	•	Element Plus
-	•	Pinia
-	•	Vite
-
-⸻
-
-⚙️ 后端架构
-	•	Python + FastAPI
-	•	SQLAlchemy
-	•	PostgreSQL
-	•	Alembic（数据库迁移）
-	•	JWT 鉴权
-	•	Docker / Docker Compose
-
-后端关注点：
-	•	严格的权限校验（前后端双层）
-	•	数据模型与业务规则强一致
-	•	所有关键行为可审计
-
-⸻
-
-🗄️ 数据库设计亮点
-	•	Enum 级别的角色与状态约束
-	•	Topic ↔ Stage ↔ Artifact 结构化关系
-	•	Requester 与 User 解耦（支持未注册委托人）
-	•	Capacity 与 User 绑定但不强制
-
-⸻
-
-🚀 快速启动
-```
-docker compose up -d --build
+# 停止并删除数据卷（慎用，会删除数据库数据）
+docker-compose down -v
 ```
 
-默认会启动：
-	•	PostgreSQL
-	•	Backend API
-	•	Frontend
-	•	MinIO（文件存储）
+**服务端口**
+- 前端: http://localhost:80
+- 后端 API: http://localhost:8001
+- MinIO Console: http://localhost:9001
+- PostgreSQL: localhost:5432
 
-🎯 适用场景
-	•	技术团队课题治理
-	•	复杂工程项目推进
-	•	探索型研发 / POC 管理
-	•	需要“对外可解释”的技术团队
-	•	希望把经验沉淀为系统能力的组织
-🧩 系统边界（刻意不做的事）
-	•	❌ 不做工时打卡
-	•	❌ 不做 KPI 评分
-	•	❌ 不替代代码管理工具
-	•	❌ 不追求流程复杂化
+### 非 Docker 模式（开发环境）
 
-AlgoHub 更关心的是：
+**1. 启动 PostgreSQL**
+```bash
+# macOS (Homebrew)
+brew services start postgresql@15
 
-结构是否清晰、责任是否明确、过程是否可追溯。
+# 或使用 Docker 单独运行 PostgreSQL
+docker run -d --name tcgs-postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=tcgs \
+  -p 5432:5432 \
+  postgres:15-alpine
+```
 
+**2. 启动后端**
+```bash
+cd backend
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 设置环境变量
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tcgs
+export SECRET_KEY=dev-secret-key
+
+# 运行数据库迁移
+alembic upgrade head
+
+# 初始化种子数据
+python seed.py
+
+# 启动服务
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**3. 启动前端**
+```bash
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+
+# 构建生产版本
+npm run build
+```
+
+**4. 停止服务**
+```bash
+# 停止前端: Ctrl+C
+
+# 停止后端: Ctrl+C
+
+# 停止 PostgreSQL
+brew services stop postgresql@15
+# 或
+docker stop tcgs-postgres
+```
+
+---
+
+## 数据库管理
+
+### Alembic 迁移命令
+
+```bash
+cd backend
+
+# 查看当前迁移版本
+alembic current
+
+# 查看迁移历史
+alembic history
+
+# 升级到最新版本
+alembic upgrade head
+
+# 升级到指定版本
+alembic upgrade <revision_id>
+
+# 回退一个版本
+alembic downgrade -1
+
+# 回退到指定版本
+alembic downgrade <revision_id>
+
+# 回退到初始状态
+alembic downgrade base
+
+# 生成新的迁移文件（自动检测模型变化）
+alembic revision --autogenerate -m "描述信息"
+
+# 生成空的迁移文件（手动编写）
+alembic revision -m "描述信息"
+```
+
+### 手动数据库操作
+
+```bash
+# 进入 Docker PostgreSQL
+docker exec -it tcgs-postgres psql -U postgres -d tcgs
+
+# 或本地 PostgreSQL
+psql -U postgres -d tcgs
+```
+
+**常用 SQL 命令**
+```sql
+-- 查看所有表
+\dt
+
+-- 查看表结构
+\d table_name
+
+-- 查看表数据
+SELECT * FROM users LIMIT 10;
+
+-- 添加字段（当 Alembic 不可用时）
+ALTER TABLE stage_template_stages ADD COLUMN require_review BOOLEAN DEFAULT FALSE;
+ALTER TABLE topic_stage_instances ADD COLUMN require_review BOOLEAN DEFAULT FALSE;
+
+-- 修改字段类型
+ALTER TABLE table_name ALTER COLUMN column_name TYPE new_type;
+
+-- 删除字段
+ALTER TABLE table_name DROP COLUMN column_name;
+
+-- 查看枚举类型
+SELECT enum_range(NULL::topic_type);
+SELECT enum_range(NULL::user_role);
+
+-- 退出
+\q
+```
+
+### 数据库备份与恢复
+
+```bash
+# 备份（Docker 环境）
+docker exec tcgs-postgres pg_dump -U postgres tcgs > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# 备份（本地环境）
+pg_dump -U postgres tcgs > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# 恢复（Docker 环境）
+cat backup.sql | docker exec -i tcgs-postgres psql -U postgres -d tcgs
+
+# 恢复（本地环境）
+psql -U postgres -d tcgs < backup.sql
+
+# 创建数据库
+docker exec tcgs-postgres createdb -U postgres tcgs
+
+# 删除数据库（慎用）
+docker exec tcgs-postgres dropdb -U postgres tcgs
+```
+
+---
+
+## 目录结构
+
+```
+tcgs/
+├── backend/                 # 后端代码
+│   ├── app/
+│   │   ├── api/            # API 路由
+│   │   ├── models/         # 数据库模型
+│   │   ├── schemas/        # Pydantic 模式
+│   │   ├── services/       # 业务逻辑
+│   │   └── main.py         # 应用入口
+│   ├── alembic/            # 数据库迁移
+│   │   └── versions/       # 迁移版本文件
+│   ├── requirements.txt    # Python 依赖
+│   └── seed.py             # 种子数据
+├── src/                    # 前端代码
+│   ├── api/                # API 调用
+│   ├── components/         # 组件
+│   ├── stores/             # Pinia 状态
+│   ├── views/              # 页面视图
+│   └── types/              # TypeScript 类型
+├── docker-compose.yml      # Docker 编排
+├── nginx.conf              # Nginx 配置
+└── package.json            # 前端依赖
+```
+
+---
+
+## 常见问题
+
+### 端口被占用
+```bash
+# 查看端口占用
+lsof -i :8000
+lsof -i :80
+
+# 杀死占用进程
+kill -9 <PID>
+```
+
+### 数据库连接失败
+```bash
+# 检查 PostgreSQL 是否运行
+docker-compose ps
+# 或
+pg_isready -h localhost -p 5432
+```
+
+### 前端页面空白
+```bash
+# 检查 nginx 配置
+docker exec tcgs-frontend cat /etc/nginx/conf.d/default.conf
+
+# 检查前端构建
+docker-compose logs frontend
+```
+
+### 清理 Docker 缓存
+```bash
+# 清理未使用的镜像
+docker image prune
+
+# 清理所有未使用资源
+docker system prune -a
+```
+
+---
 
 ## License
 
