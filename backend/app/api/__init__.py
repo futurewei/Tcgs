@@ -12,6 +12,7 @@ from .risks import router as risks_router
 from .profile import router as profile_router
 from .core_ideas import router as core_ideas_router
 from .responsibility import router as responsibility_router
+from .algo_delivery import router as algo_delivery_router
 
 api_router = APIRouter()
 
@@ -28,3 +29,4 @@ api_router.include_router(risks_router, tags=["risks"])
 api_router.include_router(profile_router, tags=["profile"])
 api_router.include_router(core_ideas_router, tags=["core-ideas"])
 api_router.include_router(responsibility_router, prefix="/responsibility", tags=["responsibility"])
+api_router.include_router(algo_delivery_router, prefix="/algo-deliveries", tags=["algo-deliveries"])

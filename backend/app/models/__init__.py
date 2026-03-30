@@ -10,6 +10,7 @@ from .audit import AuditLog
 from .deliverable import StageDeliverable, DeliverableType, DeliverableCategory
 from .stage_instance import TopicStageInstance, TechPoint, TechPointContributor, StageInstanceStatus
 from .core_idea import CoreIdea, IdeaType, IdeaStatus, idea_stage_association
+from .algo_delivery import AlgoDelivery
 
 __all__ = [
     "User",
@@ -39,4 +40,6 @@ __all__ = [
     "IdeaType",
     "IdeaStatus",
     "idea_stage_association",
+    # Algo delivery models
+    "AlgoDelivery",
 ]

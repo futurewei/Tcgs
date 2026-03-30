@@ -437,3 +437,43 @@ export interface StageInstance {
   techPoints?: TechPoint[];
   deliverables?: StageDeliverable[];
 }
+
+
+// ============ Algo Delivery Types ============
+
+export interface AlgoDelivery {
+  id: number;
+  month: string;
+  capabilityName: string;
+  archiveUrl?: string;
+  upgradeDescription?: string;
+  videoUrl?: string;
+  ownerId: number;
+  owner?: User;
+  delivered: boolean;
+  deliveredAt?: string;
+  deliveredById?: number;
+  deliveredBy?: User;
+  createdById: number;
+  createdBy?: User;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AlgoDeliveryCreateRequest {
+  month: string;
+  capabilityName: string;
+  archiveUrl?: string;
+  upgradeDescription?: string;
+  videoUrl?: string;
+  ownerId: number;
+}
+
+export interface AlgoDeliveryUpdateRequest {
+  capabilityName?: string;
+  archiveUrl?: string;
+  upgradeDescription?: string;
+  videoUrl?: string;
+  ownerId?: number;
+  delivered?: boolean;
+}

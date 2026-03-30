@@ -9,6 +9,12 @@ const routes: RouteRecordRaw[] = [
     meta: { guest: true },
   },
   {
+    path: '/algo-platform',
+    name: 'algo-platform',
+    component: () => import('@/views/capability/AlgoPlatformView.vue'),
+    meta: { public: true },
+  },
+  {
     path: '/',
     component: () => import('@/views/MainLayout.vue'),
     meta: { requiresAuth: true },
