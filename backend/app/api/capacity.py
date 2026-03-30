@@ -233,7 +233,7 @@ def create_binding(
     current_user: User = Depends(get_current_user)
 ):
     # CUSTOMER cannot bind capacity
-    if current_user.role == UserRole.CUSTOMER:
+    if current_user.role in [UserRole.CUSTOMER_INTERNAL, UserRole.CUSTOMER_EXTERNAL]:
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot bind capacity")
 
     # Only admin can force bindings

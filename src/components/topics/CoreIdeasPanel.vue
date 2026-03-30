@@ -78,7 +78,7 @@
               <div class="flex items-center justify-between">
                 <span>{{ member.userName }}</span>
                 <span class="text-xs text-zinc-400">
-                  {{ member.isDri ? 'DRI' : member.userRole === 'REVIEWER' ? '审核人' : member.userRole === 'CUSTOMER' ? 'PDT' : '成员' }}
+                  {{ member.isDri ? 'DRI' : member.userRole === 'REVIEWER' ? '审核人' : ['CUSTOMER_INTERNAL', 'CUSTOMER_EXTERNAL'].includes(member.userRole) ? 'PDT' : '成员' }}
                 </span>
               </div>
             </el-option>

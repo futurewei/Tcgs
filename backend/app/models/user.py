@@ -10,7 +10,8 @@ class UserRole(str, enum.Enum):
     MEMBER = "MEMBER"
     REVIEWER = "REVIEWER"
     EXTERNAL = "EXTERNAL"
-    CUSTOMER = "CUSTOMER"
+    CUSTOMER_INTERNAL = "CUSTOMER_INTERNAL"  # 需求方(PDU内)
+    CUSTOMER_EXTERNAL = "CUSTOMER_EXTERNAL"  # 需求方(PDU外)
 
 
 class User(Base):

@@ -179,7 +179,8 @@ cd /Users/laiwei/Desktop/algo_gov/tcgs_prod_v2/Tcgs
 | Member | member@algohub.com | member123 |
 | Reviewer | reviewer@algohub.com | reviewer123 |
 | External | external@algohub.com | external123 |
-| Customer | pdt@algohub.com | pdt123 |
+| Customer (PDU内) | pdt@algohub.com | pdt123 |
+| Customer (PDU外) | partner@algohub.com | partner123 |
 
 ---
 

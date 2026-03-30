@@ -26,7 +26,8 @@
               <el-option value="MEMBER" label="成员" />
               <el-option value="REVIEWER" label="评审人" />
               <el-option value="EXTERNAL" label="外部人员" />
-              <el-option value="CUSTOMER" label="需求方" />
+              <el-option value="CUSTOMER_INTERNAL" label="需求方(PDU内)" />
+              <el-option value="CUSTOMER_EXTERNAL" label="需求方(PDU外)" />
             </el-select>
           </template>
         </el-table-column>
@@ -79,7 +80,8 @@
             <el-option value="MEMBER" label="成员" />
             <el-option value="REVIEWER" label="评审人" />
             <el-option value="EXTERNAL" label="外部人员" />
-            <el-option value="CUSTOMER" label="需求方" />
+            <el-option value="CUSTOMER_INTERNAL" label="需求方(PDU内)" />
+            <el-option value="CUSTOMER_EXTERNAL" label="需求方(PDU外)" />
           </el-select>
         </el-form-item>
       </el-form>

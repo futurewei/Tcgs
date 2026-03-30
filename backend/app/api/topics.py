@@ -96,6 +96,11 @@ def _get_topic_with_relations(db: Session, topic_id: int):
     ).filter(Topic.id == topic_id).first()
 
 
+def is_customer_role(user: User) -> bool:
+    """检查用户是否为需求方角色（包括PDU内和PDU外）"""
+    return user.role in [UserRole.CUSTOMER_INTERNAL, UserRole.CUSTOMER_EXTERNAL]
+
+
 def user_can_view_all_topics(user: User) -> bool:
     """
     ADMIN, MEMBER, REVIEWER 可以查看所有课题
@@ -109,7 +114,7 @@ def filter_topics_by_user_access(query, user: User, db: Session):
     CUSTOMER: 只能看到自己作为需求方的课题
     EXTERNAL: 只能看到自己被分配到的课题（通过 Binding -> CapacitySlot -> user_id）
     """
-    if user.role == UserRole.CUSTOMER:
+    if is_customer_role(user):
         query = query.filter(Topic.requester_user_id == user.id)
     elif user.role == UserRole.EXTERNAL:
         subquery = db.query(Binding.topic_id).join(CapacitySlot).filter(
@@ -123,7 +128,7 @@ def check_topic_access(topic: Topic, user: User, db: Session) -> bool:
     if user_can_view_all_topics(user):
         return True
 
-    if user.role == UserRole.CUSTOMER:
+    if is_customer_role(user):
         return topic.requester_user_id == user.id
     elif user.role == UserRole.EXTERNAL:
         binding = db.query(Binding).join(CapacitySlot).filter(
@@ -240,7 +245,7 @@ def create_topic(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role == UserRole.CUSTOMER:
+    if is_customer_role(current_user):
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot create topics")
 
     if current_user.role != UserRole.ADMIN:
@@ -252,7 +257,7 @@ def create_topic(
         requester_user = db.query(User).filter(User.id == topic_data.requester_user_id).first()
         if not requester_user:
             raise HTTPException(status_code=400, detail="Requester user not found")
-        if requester_user.role != UserRole.CUSTOMER:
+        if not is_customer_role(requester_user):
             raise HTTPException(status_code=400, detail="Only CUSTOMER users can be requester")
         requester_name = requester_user.name
     else:
@@ -386,7 +391,7 @@ def update_topic(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role == UserRole.CUSTOMER:
+    if is_customer_role(current_user):
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot update topics")
 
     # ✅ 必须用 relations 版本：否则 bindings/template/stage_instances 可能不全，导致校验/权限/同步失败
@@ -456,7 +461,7 @@ def advance_stage(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role == UserRole.CUSTOMER:
+    if is_customer_role(current_user):
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot advance stage")
 
     # ✅ 要同时拿到 bindings + stage_states + stage_instances + template
@@ -541,7 +546,7 @@ def backward_stage(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role == UserRole.CUSTOMER:
+    if is_customer_role(current_user):
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot change stage")
 
     topic = db.query(Topic).options(
@@ -751,7 +756,7 @@ def create_artifact(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role == UserRole.CUSTOMER:
+    if is_customer_role(current_user):
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot create artifacts")
 
     topic = db.query(Topic).filter(Topic.id == topic_id).first()
@@ -800,7 +805,7 @@ def create_review(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role == UserRole.CUSTOMER:
+    if is_customer_role(current_user):
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot create reviews")
 
     topic = db.query(Topic).filter(Topic.id == topic_id).first()
@@ -867,7 +872,7 @@ def create_deliverable(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role == UserRole.CUSTOMER:
+    if is_customer_role(current_user):
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot create deliverables")
 
     topic = db.query(Topic).options(
@@ -908,7 +913,7 @@ def delete_deliverable(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role == UserRole.CUSTOMER:
+    if is_customer_role(current_user):
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot delete deliverables")
 
     deliverable = db.query(StageDeliverable).filter(
@@ -1024,7 +1029,7 @@ def create_topic_tech_point(
 ):
     from ..models.stage_instance import TechPoint
 
-    if current_user.role == UserRole.CUSTOMER:
+    if is_customer_role(current_user):
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot create tech points")
 
     topic = db.query(Topic).filter(Topic.id == topic_id).first()
@@ -1075,7 +1080,7 @@ def update_topic_tech_point(
 ):
     from ..models.stage_instance import TechPoint
 
-    if current_user.role == UserRole.CUSTOMER:
+    if is_customer_role(current_user):
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot update tech points")
 
     tech_point = db.query(TechPoint).filter(
@@ -1125,7 +1130,7 @@ def delete_topic_tech_point(
 ):
     from ..models.stage_instance import TechPoint
 
-    if current_user.role == UserRole.CUSTOMER:
+    if is_customer_role(current_user):
         raise HTTPException(status_code=403, detail="CUSTOMER users cannot delete tech points")
 
     tech_point = db.query(TechPoint).filter(

@@ -228,9 +228,9 @@ function getSlotUsage(slot: CapacitySlot): number {
   return capacityStore.getSlotUsage(slot);
 }
 
-// CUSTOMER users for requester selection
+// CUSTOMER users for requester selection (PDU内 + PDU外)
 const eligibleRequesters = computed(() =>
-  usersStore.users.filter(u => u.role === 'CUSTOMER')
+  usersStore.users.filter(u => ['CUSTOMER_INTERNAL', 'CUSTOMER_EXTERNAL'].includes(u.role))
 );
 
 watch(() => props.modelValue, (open) => {

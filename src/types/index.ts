@@ -1,5 +1,5 @@
 // User & Auth Types
-export type UserRole = 'ADMIN' | 'MEMBER' | 'REVIEWER' | 'EXTERNAL' | 'CUSTOMER';
+export type UserRole = 'ADMIN' | 'MEMBER' | 'REVIEWER' | 'EXTERNAL' | 'CUSTOMER_INTERNAL' | 'CUSTOMER_EXTERNAL';
 
 export interface User {
   id: number;

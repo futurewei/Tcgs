@@ -47,7 +47,8 @@ export const zhCN = {
     MEMBER: '算法成员',
     REVIEWER: '评审员',
     EXTERNAL: '协调人力',
-    CUSTOMER: '需求方',
+    CUSTOMER_INTERNAL: '需求方(PDU内)',
+    CUSTOMER_EXTERNAL: '需求方(PDU外)',
   },
 
   // 课题 (Topic)

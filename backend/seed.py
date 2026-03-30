@@ -64,17 +64,33 @@ try:
         db.add(external)
         print("Created external user: external@algohub.com / external123")
 
-    # Create customer user (Requester / Client)
-    customer = db.query(User).filter(User.email == "pdt@algohub.com").first()
-    if not customer:
-        customer = User(
+    # Create customer user (PDU内 - Internal)
+    customer_internal = db.query(User).filter(User.email == "pdt@algohub.com").first()
+    if not customer_internal:
+        customer_internal = User(
             email="pdt@algohub.com",
             name="PDT经理",
             hashed_password=AuthService.get_password_hash("pdt123"),
-            role=UserRole.CUSTOMER
+            role=UserRole.CUSTOMER_INTERNAL
         )
-        db.add(customer)
-        print("Created customer user: pdt@algohub.com / pdt123")
+        db.add(customer_internal)
+        print("Created customer (PDU内) user: pdt@algohub.com / pdt123")
+    elif customer_internal.role not in [UserRole.CUSTOMER_INTERNAL, UserRole.CUSTOMER_EXTERNAL]:
+        # 更新旧的 CUSTOMER 角色为 CUSTOMER_INTERNAL
+        customer_internal.role = UserRole.CUSTOMER_INTERNAL
+        print("Updated customer role to CUSTOMER_INTERNAL: pdt@algohub.com")
+
+    # Create customer user (PDU外 - External)
+    customer_external = db.query(User).filter(User.email == "partner@algohub.com").first()
+    if not customer_external:
+        customer_external = User(
+            email="partner@algohub.com",
+            name="外部合作方",
+            hashed_password=AuthService.get_password_hash("partner123"),
+            role=UserRole.CUSTOMER_EXTERNAL
+        )
+        db.add(customer_external)
+        print("Created customer (PDU外) user: partner@algohub.com / partner123")
 
     db.flush()
 
@@ -283,11 +299,12 @@ try:
     db.commit()
     print("\nSeed completed successfully!")
     print("\nDemo accounts:")
-    print("  Admin:    admin@algohub.com / admin123")
-    print("  Member:   member@algohub.com / member123")
-    print("  Reviewer: reviewer@algohub.com / reviewer123")
-    print("  External: external@algohub.com / external123")
-    print("  Customer: pdt@algohub.com / pdt123")
+    print("  Admin:              admin@algohub.com / admin123")
+    print("  Member:             member@algohub.com / member123")
+    print("  Reviewer:           reviewer@algohub.com / reviewer123")
+    print("  External:           external@algohub.com / external123")
+    print("  Customer (PDU内):   pdt@algohub.com / pdt123")
+    print("  Customer (PDU外):   partner@algohub.com / partner123")
 
 except Exception as e:
     print(f"Error: {e}")

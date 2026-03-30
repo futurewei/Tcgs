@@ -32,7 +32,8 @@
           <div class="demo-list">
             <p><strong>管理员:</strong> admin@algohub.com / admin123</p>
             <p><strong>算法成员:</strong> member@algohub.com / member123</p>
-            <p><strong>需求方:</strong> pdt@algohub.com / pdt123</p>
+            <p><strong>需求方(PDU内):</strong> pdt@algohub.com / pdt123</p>
+            <p><strong>需求方(PDU外):</strong> partner@algohub.com / partner123</p>
           </div>
         </div>
       </div>

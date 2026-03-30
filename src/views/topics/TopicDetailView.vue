@@ -457,7 +457,7 @@
         <el-form-item label="第一作者" required>
           <el-select v-model="newTechPointForm.firstAuthorId" class="w-full" filterable placeholder="选择第一作者">
             <el-option 
-              v-for="u in usersStore.users.filter(u => u.role !== 'CUSTOMER')" 
+              v-for="u in usersStore.users.filter(u => !['CUSTOMER_INTERNAL', 'CUSTOMER_EXTERNAL'].includes(u.role))" 
               :key="u.id" 
               :value="u.id" 
               :label="u.name"
