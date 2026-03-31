@@ -42,6 +42,7 @@
       :placeholder="placeholder"
       @input="handleInput"
       @blur="handleBlur"
+      @paste="handlePaste"
       v-html="internalValue"
     ></div>
   </div>
@@ -138,6 +139,38 @@ async function handleImageUpload(event: Event) {
     uploading.value = false;
     // 清空 input 以便再次选择同一文件
     input.value = '';
+  }
+}
+
+// 处理粘贴（支持直接粘贴图片）
+async function handlePaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      if (file) {
+        // 检查文件大小
+        if (file.size > 10 * 1024 * 1024) {
+          ElMessage.error('图片大小不能超过 10MB');
+          return;
+        }
+
+        uploading.value = true;
+        try {
+          const result = await uploadApi.uploadImage(file);
+          execCommand('insertImage', result.url);
+          ElMessage.success('图片上传成功');
+        } catch {
+          ElMessage.error('图片上传失败');
+        } finally {
+          uploading.value = false;
+        }
+      }
+      return;
+    }
   }
 }
 
