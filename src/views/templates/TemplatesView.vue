@@ -234,13 +234,21 @@ async function saveTemplate() {
 async function deleteTemplateById(template: StageTemplate) {
   try {
     await ElMessageBox.confirm(`确定删除模板「${template.name}」吗？`, '删除模板', { type: 'warning' });
+  } catch {
+    return; // 用户取消
+  }
+
+  try {
     await templatesStore.deleteTemplate(template.id);
     if (selectedTemplate.value?.id === template.id) {
       selectedTemplate.value = null;
       isCreating.value = false;
     }
     ElMessage.success('模板已删除');
-  } catch (error) { /* Cancelled */ }
+  } catch (error: any) {
+    console.error('删除模板失败:', error);
+    ElMessage.error(error?.response?.data?.detail || '删除失败');
+  }
 }
 
 onMounted(() => templatesStore.fetchTemplates());

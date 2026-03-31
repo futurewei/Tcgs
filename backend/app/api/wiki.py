@@ -276,11 +276,21 @@ def update_page(
 def delete_page(
     page_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_user)
 ):
     page = db.query(WikiPage).filter(WikiPage.id == page_id).first()
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
+
+    # 允许创建者或管理员删除
+    from ..models.user import UserRole
+    if page.created_by_id != current_user.id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Only creator or admin can delete this page")
+
+    # 先删除关联数据（revisions, comments, likes）
+    db.query(WikiRevision).filter(WikiRevision.page_id == page_id).delete(synchronize_session=False)
+    db.query(WikiComment).filter(WikiComment.page_id == page_id).delete(synchronize_session=False)
+    db.query(WikiLike).filter(WikiLike.page_id == page_id).delete(synchronize_session=False)
 
     db.delete(page)
     db.commit()

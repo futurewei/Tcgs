@@ -154,9 +154,17 @@ async function updateRole(user: User, role: string) {
 async function deleteUser(user: User) {
   try {
     await ElMessageBox.confirm('确定删除该用户吗？', '删除用户', { type: 'warning' });
+  } catch {
+    return; // 用户取消
+  }
+
+  try {
     await usersStore.deleteUser(user.id);
     ElMessage.success('用户已删除');
-  } catch {}
+  } catch (error: any) {
+    console.error('删除用户失败:', error);
+    ElMessage.error(error?.response?.data?.detail || '删除失败');
+  }
 }
 
 async function saveUser() {

@@ -380,24 +380,32 @@ async function createCategory() {
 
 async function deleteCategory(cat: WikiDirection) {
   const articleCount = cat.pages?.length || 0;
-  const msg = articleCount > 0 
+  const msg = articleCount > 0
     ? `确定删除类别「${cat.name}」吗？该类别下有 ${articleCount} 篇文章，将一并删除。`
     : `确定删除类别「${cat.name}」吗？`;
-  
+
   try {
     await ElMessageBox.confirm(msg, '删除类别', { type: 'warning' });
+  } catch {
+    return; // 用户取消
+  }
+
+  try {
     await wikiApi.deleteDirection(cat.id);
-    
+
     // 如果删除的是当前选中的类别，清空选择
     if (selectedCategoryId.value === cat.id) {
       selectedCategoryId.value = null;
       selectedArticle.value = null;
       selectedArticleId.value = null;
     }
-    
+
     await wikiStore.fetchDirections();
     ElMessage.success('类别已删除');
-  } catch {}
+  } catch (error: any) {
+    console.error('删除类别失败:', error);
+    ElMessage.error(error?.response?.data?.detail || '删除失败');
+  }
 }
 
 // 文章操作
@@ -451,8 +459,10 @@ async function saveArticle() {
       // 更新文章
       await wikiApi.updatePage(editingArticle.value.id, { title: articleForm.value.title });
       await wikiApi.createRevision({ pageId: editingArticle.value.id, content: articleForm.value.content });
-      ElMessage.success('文章已更新');
       await selectArticle(editingArticle.value);
+      isWriting.value = false;
+      editingArticle.value = null;
+      ElMessage.success('文章已更新');
     } else {
       // 新建文章
       const page = await wikiApi.createPage({
@@ -460,14 +470,15 @@ async function saveArticle() {
         title: articleForm.value.title,
         content: articleForm.value.content
       });
-      ElMessage.success('文章已发布');
       await wikiStore.fetchDirection(selectedCategoryId.value);
       await selectArticle(page);
+      isWriting.value = false;
+      editingArticle.value = null;
+      ElMessage.success('文章已发布');
     }
-    isWriting.value = false;
-    editingArticle.value = null;
-  } catch {
-    ElMessage.error('保存失败');
+  } catch (error: any) {
+    console.error('保存文章失败:', error);
+    ElMessage.error(error?.response?.data?.detail || '保存失败');
   } finally {
     saving.value = false;
   }
@@ -477,6 +488,11 @@ async function deleteArticle() {
   if (!selectedArticle.value) return;
   try {
     await ElMessageBox.confirm('确定删除这篇文章吗？', '删除文章', { type: 'warning' });
+  } catch {
+    return; // 用户取消
+  }
+
+  try {
     await wikiApi.deletePage(selectedArticle.value.id);
     selectedArticle.value = null;
     selectedArticleId.value = null;
@@ -484,7 +500,10 @@ async function deleteArticle() {
       await wikiStore.fetchDirection(selectedCategoryId.value);
     }
     ElMessage.success('文章已删除');
-  } catch {}
+  } catch (error: any) {
+    console.error('删除文章失败:', error);
+    ElMessage.error(error?.response?.data?.detail || '删除失败');
+  }
 }
 
 // 图片上传

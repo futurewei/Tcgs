@@ -178,6 +178,84 @@ def delete_user(
     if user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
 
+    # 导入相关模型
+    from ..models.topic import Topic
+    from ..models.wiki import WikiPage, WikiRevision, WikiComment, WikiLike
+    from ..models.algo_delivery import AlgoDelivery
+    from ..models.audit import AuditLog
+    from ..models.artifact import Artifact
+    from ..models.review import ReviewComment
+    from ..models.stage_instance import StageDeliverable
+
+    # 检查是否有 DRI 课题
+    dri_topics_count = db.query(Topic).filter(Topic.dri_id == user_id).count()
+    if dri_topics_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"无法删除：该用户是 {dri_topics_count} 个课题的 DRI，请先转移课题负责人"
+        )
+
+    # 检查是否有容量绑定
+    user_slot = db.query(CapacitySlot).filter(CapacitySlot.user_id == user_id).first()
+    if user_slot and user_slot.bindings:
+        raise HTTPException(
+            status_code=400,
+            detail="无法删除：该用户有容量绑定记录，请先解除绑定"
+        )
+
+    # 检查是否有 Wiki 修订版本（这些不能设为 NULL）
+    wiki_revisions_count = db.query(WikiRevision).filter(WikiRevision.created_by_id == user_id).count()
+    if wiki_revisions_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"无法删除：该用户有 {wiki_revisions_count} 个 Wiki 修订记录"
+        )
+
+    # 检查是否有 Wiki 评论
+    wiki_comments_count = db.query(WikiComment).filter(WikiComment.created_by_id == user_id).count()
+    if wiki_comments_count > 0:
+        # 删除用户的评论
+        db.query(WikiComment).filter(WikiComment.created_by_id == user_id).delete(synchronize_session=False)
+
+    # 检查是否有算法交付记录作为责任人
+    algo_owner_count = db.query(AlgoDelivery).filter(AlgoDelivery.owner_id == user_id).count()
+    if algo_owner_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"无法删除：该用户是 {algo_owner_count} 个算法能力的责任人，请先转移责任人"
+        )
+
+    # 检查是否有算法交付记录作为创建者
+    algo_creator_count = db.query(AlgoDelivery).filter(AlgoDelivery.created_by_id == user_id).count()
+    if algo_creator_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"无法删除：该用户创建了 {algo_creator_count} 个算法能力记录"
+        )
+
+    # 删除用户的 Slot（如果没有绑定）
+    if user_slot:
+        db.delete(user_slot)
+
+    # 将 WikiPage 的创建者设为 NULL（这个字段是 nullable=True）
+    db.query(WikiPage).filter(WikiPage.created_by_id == user_id).update(
+        {WikiPage.created_by_id: None}, synchronize_session=False
+    )
+
+    # 删除用户的点赞记录
+    db.query(WikiLike).filter(WikiLike.user_id == user_id).delete(synchronize_session=False)
+
+    # 将算法交付的交付确认者设为 NULL（这个字段是 nullable=True）
+    db.query(AlgoDelivery).filter(AlgoDelivery.delivered_by_id == user_id).update(
+        {AlgoDelivery.delivered_by_id: None}, synchronize_session=False
+    )
+
+    # 审计日志保留，将 user_id 设为 NULL
+    db.query(AuditLog).filter(AuditLog.user_id == user_id).update(
+        {AuditLog.user_id: None}, synchronize_session=False
+    )
+
+    # 先记录删除日志（在删除用户之前）
     AuditService.log(db, AuditAction.USER_DELETE, "User", user.id, current_user,
                      old_value={"email": user.email, "name": user.name})
 

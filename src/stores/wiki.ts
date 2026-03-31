@@ -44,7 +44,14 @@ export const useWikiStore = defineStore('wiki', () => {
         currentDirection.value = d as any;
         return;
       }
-      currentDirection.value = await wikiApi.getDirection(id);
+      const direction = await wikiApi.getDirection(id);
+      currentDirection.value = direction;
+
+      // 同步更新 directions 数组中对应的项
+      const index = directions.value.findIndex(d => d.id === id);
+      if (index !== -1) {
+        directions.value[index] = direction;
+      }
     } catch (error) {
       console.error('Failed to fetch direction:', error);
       throw error;

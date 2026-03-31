@@ -319,40 +319,42 @@ function resetForm() {
 async function handleSave() {
   if (!formRef.value) return;
 
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return;
+  try {
+    await formRef.value.validate();
+  } catch {
+    return; // 验证失败
+  }
 
-    saving.value = true;
-    try {
-      if (editingId.value) {
-        // Update
-        await algoDeliveriesStore.updateDelivery(editingId.value, {
-          capabilityName: form.capabilityName,
-          archiveUrl: form.archiveUrl || undefined,
-          upgradeDescription: form.upgradeDescription || undefined,
-          videoUrl: form.videoUrl || undefined,
-          ownerId: form.ownerId,
-        });
-        ElMessage.success('更新成功');
-      } else {
-        // Create
-        await algoDeliveriesStore.createDelivery({
-          month: selectedMonth.value,
-          capabilityName: form.capabilityName,
-          archiveUrl: form.archiveUrl || undefined,
-          upgradeDescription: form.upgradeDescription || undefined,
-          videoUrl: form.videoUrl || undefined,
-          ownerId: form.ownerId!,
-        });
-        ElMessage.success('创建成功');
-      }
-      dialogVisible.value = false;
-    } catch (error: any) {
-      ElMessage.error(error.response?.data?.detail || '操作失败');
-    } finally {
-      saving.value = false;
+  saving.value = true;
+  try {
+    if (editingId.value) {
+      // Update
+      await algoDeliveriesStore.updateDelivery(editingId.value, {
+        capabilityName: form.capabilityName,
+        archiveUrl: form.archiveUrl || undefined,
+        upgradeDescription: form.upgradeDescription || undefined,
+        videoUrl: form.videoUrl || undefined,
+        ownerId: form.ownerId,
+      });
+      ElMessage.success('更新成功');
+    } else {
+      // Create
+      await algoDeliveriesStore.createDelivery({
+        month: selectedMonth.value,
+        capabilityName: form.capabilityName,
+        archiveUrl: form.archiveUrl || undefined,
+        upgradeDescription: form.upgradeDescription || undefined,
+        videoUrl: form.videoUrl || undefined,
+        ownerId: form.ownerId!,
+      });
+      ElMessage.success('创建成功');
     }
-  });
+    dialogVisible.value = false;
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.detail || '操作失败');
+  } finally {
+    saving.value = false;
+  }
 }
 
 // Handle deliver checkbox change

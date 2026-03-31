@@ -65,6 +65,7 @@
 import { ref, reactive, onMounted } from 'vue';
 import { insightsApi } from '@/api/insights';
 import { Refresh } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import dayjs from 'dayjs';
 import type { AuditLog, AuditAction } from '@/types';
 
