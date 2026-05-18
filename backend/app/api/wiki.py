@@ -196,9 +196,11 @@ def get_page(
         db.commit()
 
     if page.current_revision_id:
-        page.current_revision = db.query(WikiRevision).options(
+        current_revision = db.query(WikiRevision).options(
             joinedload(WikiRevision.created_by)
         ).filter(WikiRevision.id == page.current_revision_id).first()
+    else:
+        current_revision = None
 
     # 检查当前用户是否已点赞
     user_liked = db.query(WikiLike).filter(
@@ -209,7 +211,7 @@ def get_page(
     # 手动构建响应
     return {
         **page.__dict__,
-        "current_revision": page.current_revision,
+        "current_revision": current_revision,
         "like_count": len(page.likes) if page.likes else 0,
         "user_liked": user_liked,
         "comments": page.comments or []

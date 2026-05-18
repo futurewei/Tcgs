@@ -49,6 +49,16 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/capability/CapabilityShelfView.vue'),
       },
       {
+        path: 'capabilities',
+        name: 'capabilities',
+        component: () => import('@/views/capability/CapabilityListView.vue'),
+      },
+      {
+        path: 'capabilities/:id',
+        name: 'capability-detail',
+        component: () => import('@/views/capability/CapabilityDetailView.vue'),
+      },
+      {
         path: 'responsibility-field',
         name: 'responsibility-field',
         component: () => import('@/views/responsibility/ResponsibilityFieldView.vue'),
@@ -82,6 +92,11 @@ const routes: RouteRecordRaw[] = [
         path: 'insights',
         name: 'insights',
         component: () => import('@/views/insights/InsightsView.vue'),
+      },
+      {
+        path: 'issues',
+        name: 'delivery-issues',
+        component: () => import('@/views/issues/DeliveryIssuesView.vue'),
       },
       {
         path: 'users',

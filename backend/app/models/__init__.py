@@ -11,6 +11,19 @@ from .deliverable import StageDeliverable, DeliverableType, DeliverableCategory
 from .stage_instance import TopicStageInstance, TechPoint, TechPointContributor, StageInstanceStatus, TopicRisk, RiskLevel
 from .core_idea import CoreIdea, IdeaType, IdeaStatus, idea_stage_association
 from .algo_delivery import AlgoDelivery
+from .capability import (
+    Capability,
+    CapabilityCategory,
+    CapabilityGeneration,
+    DeliveryIssue,
+    ProductLine,
+    CapabilityType,
+    MaturityLevel,
+    RiskStatus,
+    GenerationStatus,
+    IssuePriority,
+    IssueStatus,
+)
 
 __all__ = [
     "User",
@@ -46,4 +59,16 @@ __all__ = [
     "idea_stage_association",
     # Algo delivery models
     "AlgoDelivery",
+    # Capability models
+    "Capability",
+    "CapabilityCategory",
+    "CapabilityGeneration",
+    "DeliveryIssue",
+    "ProductLine",
+    "CapabilityType",
+    "MaturityLevel",
+    "RiskStatus",
+    "GenerationStatus",
+    "IssuePriority",
+    "IssueStatus",
 ]

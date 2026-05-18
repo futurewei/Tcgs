@@ -35,9 +35,9 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       const p = await authApi.login({ email, password });
-      token.value = p.access_token;
+      token.value = p.accessToken;
       user.value = p.user;
-      localStorage.setItem('token', p.access_token);
+      localStorage.setItem('token', p.accessToken);
       return true;
     } catch (error) {
       console.error('Login failed:', error);

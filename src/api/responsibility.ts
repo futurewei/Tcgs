@@ -24,10 +24,23 @@ export interface ResponsibilityData {
   uploadedById: number;
 }
 
+export interface ResponsibilityField {
+  id: number;
+  name: string;
+  ownerName: string;
+  raw: Record<string, string>;
+}
+
 export const responsibilityApi = {
   // 获取责任田数据
   getData: async (): Promise<{ success: boolean; data: ResponsibilityData | null }> => {
     const response = await client.get('/responsibility');
+    return response.data;
+  },
+
+  // 获取结构化责任田字段列表（供 Capability 选择）
+  getFields: async (): Promise<{ success: boolean; fields: ResponsibilityField[] }> => {
+    const response = await client.get('/responsibility/fields');
     return response.data;
   },
 

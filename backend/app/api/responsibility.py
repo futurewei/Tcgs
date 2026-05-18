@@ -177,3 +177,73 @@ def delete_responsibility_field(
         return {"success": True, "message": "责任田数据已删除"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
+
+
+@router.get("/fields")
+def get_responsibility_fields(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    从 Excel 数据中提取结构化的责任田字段列表
+    供 Capability 页面选择责任田归属
+    """
+    data = load_responsibility_data()
+    if not data:
+        return {"success": True, "fields": []}
+
+    sheets = data.get("sheets", [])
+    if not sheets:
+        return {"success": True, "fields": []}
+
+    # Take the first sheet
+    sheet = sheets[0]
+    rows = sheet.get("rows", [])
+
+    if len(rows) < 2:
+        return {"success": True, "fields": []}
+
+    # First row is header
+    headers = rows[0]
+    data_rows = rows[1:]
+
+    # Infer column indices
+    def find_col_index(keywords):
+        for i, h in enumerate(headers):
+            h_lower = h.strip().lower()
+            for kw in keywords:
+                if kw in h_lower:
+                    return i
+        return None
+
+    name_col = find_col_index(["责任田", "领域", "field", "name", "名称", "模块"]) or 0
+    owner_col = find_col_index(["负责人", "owner", "人", "dri", "主责"]) or 1 if len(headers) > 1 else None
+
+    fields = []
+    for row_idx, row in enumerate(data_rows):
+        if not row or all(c == "" for c in row):
+            continue
+
+        name = row[name_col].strip() if name_col < len(row) and row[name_col] else ""
+        if not name:
+            continue
+
+        owner_name = ""
+        if owner_col is not None and owner_col < len(row):
+            owner_name = row[owner_col].strip()
+
+        # Build a key-value map of all columns
+        raw = {}
+        for col_idx, val in enumerate(row):
+            if col_idx < len(headers):
+                raw[headers[col_idx]] = val if val else ""
+            else:
+                raw[f"col_{col_idx}"] = val if val else ""
+
+        fields.append({
+            "id": row_idx + 1,
+            "name": name,
+            "ownerName": owner_name,
+            "raw": raw,
+        })
+
+    return {"success": True, "fields": fields}

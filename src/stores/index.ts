@@ -4,3 +4,5 @@ export { useCapacityStore } from './capacity';
 export { useTemplatesStore } from './templates';
 export { useWikiStore } from './wiki';
 export { useUsersStore } from './users';
+export { useAlgoDeliveriesStore } from './algoDeliveries';
+export { useCapabilitiesStore } from './capabilities';

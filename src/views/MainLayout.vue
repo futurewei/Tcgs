@@ -121,7 +121,8 @@ import {
   List,
   Clock,
   Goods,
-  Grid
+  Grid,
+  Warning
 } from '@element-plus/icons-vue';
 import CreateTopicDialog from '@/components/topic/CreateTopicDialog.vue';
 
@@ -152,8 +153,9 @@ const roleLabel = computed(() => roleLabels[authStore.user?.role || ''] || authS
 const navItems = [
   { path: '/dashboard', label: '工作台', icon: DataAnalysis },
   { path: '/topics', label: '课题管理', icon: Document },
+  { path: '/issues', label: '交付重点问题', icon: Warning },
   { path: '/capacity', label: '人力管理', icon: User },
-  { path: '/capability-shelf', label: '算法能力货架', icon: Goods },
+  { path: '/capabilities', label: '算法能力货架', icon: Goods },
   { path: '/responsibility-field', label: '责任田', icon: Grid },
   { path: '/wiki', label: '知识库', icon: Notebook },
   { path: '/templates', label: '流程模板', icon: Collection },

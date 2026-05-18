@@ -296,6 +296,69 @@ try:
         db.add(wiki_dir)
         print("Created Wiki direction: 技术文档")
 
+    # ================================================================
+    # Seed Capability Category Taxonomy Tree (by capability, NOT product)
+    # ================================================================
+
+    def seed_category(name, parent_id=None, display_order=0):
+        existing = db.query(CapabilityCategory).filter(
+            CapabilityCategory.name == name,
+            CapabilityCategory.parent_id == parent_id,
+        ).first()
+        if existing:
+            return existing
+        cat = CapabilityCategory(
+            name=name,
+            parent_id=parent_id,
+            display_order=display_order,
+        )
+        db.add(cat)
+        db.flush()
+        return cat
+
+    # --- 空间感知与稳定 ---
+    spatial = seed_category("空间感知与稳定", display_order=0)
+    seed_category("空间稳定性", parent_id=spatial.id, display_order=0)
+    seed_category("动态AR Anchoring", parent_id=spatial.id, display_order=1)
+    seed_category("空间标定", parent_id=spatial.id, display_order=2)
+
+    # --- 渲染与编排 ---
+    render = seed_category("渲染与编排", display_order=1)
+    seed_category("实时渲染", parent_id=render.id, display_order=0)
+    seed_category("多VID编排", parent_id=render.id, display_order=1)
+    seed_category("抗抖策略", parent_id=render.id, display_order=2)
+    seed_category("动态编排", parent_id=render.id, display_order=3)
+
+    # --- 投影与映射 ---
+    project = seed_category("投影与映射", display_order=2)
+    seed_category("空间投影", parent_id=project.id, display_order=0)
+    seed_category("畸变矫正", parent_id=project.id, display_order=1)
+    seed_category("地面映射", parent_id=project.id, display_order=2)
+    seed_category("多平面映射", parent_id=project.id, display_order=3)
+    seed_category("真彩校正", parent_id=project.id, display_order=4)
+    seed_category("几何矫正", parent_id=project.id, display_order=5)
+
+    # --- 表达与交互 ---
+    express = seed_category("表达与交互", display_order=3)
+    seed_category("路权表达", parent_id=express.id, display_order=0)
+    seed_category("场景切换", parent_id=express.id, display_order=1)
+    seed_category("交互表达", parent_id=express.id, display_order=2)
+
+    # --- 标定与一致性 ---
+    calib = seed_category("标定与一致性", display_order=4)
+    seed_category("标定一致性", parent_id=calib.id, display_order=0)
+
+    # --- 融合与感知 ---
+    fusion = seed_category("融合与感知", display_order=5)
+    seed_category("多传感器融合", parent_id=fusion.id, display_order=0)
+    seed_category("感知融合", parent_id=fusion.id, display_order=1)
+
+    # --- 参数与泛化 ---
+    param = seed_category("参数与泛化", display_order=6)
+    seed_category("参数泛化能力", parent_id=param.id, display_order=0)
+
+    print("Seeded capability category taxonomy tree")
+
     db.commit()
     print("\nSeed completed successfully!")
     print("\nDemo accounts:")

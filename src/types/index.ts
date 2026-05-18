@@ -488,3 +488,265 @@ export interface AlgoDeliveryUpdateRequest {
   ownerId?: number;
   delivered?: boolean;
 }
+
+// ============ Capability Types ============
+
+export type ProductLine = 'HUD' | 'LIGHT' | 'PROJECTION' | 'ALL';
+
+export type CapabilityType =
+  | 'DISPLAY_ALGO'
+  | 'SPATIAL_STABILITY'
+  | 'PERCEPTION_FUSION'
+  | 'PARAM_GENERALIZATION'
+  | 'REALTIME_PERFORMANCE'
+  | 'CALIBRATION_CONSISTENCY'
+  | 'ENGINEERING_FRAMEWORK'
+  | 'INTERACTION_EXPRESSION';
+
+export type MaturityLevel = 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
+
+export type RiskStatus = 'NORMAL' | 'WATCH' | 'HIGH_RISK';
+
+export type IssuePriority = 'P0' | 'P1' | 'P2';
+
+export type IssueStatus = 'NEW' | 'ANALYZING' | 'FIXING' | 'VERIFYING' | 'CLOSED';
+
+export type GenerationStatus = 'PLANNING' | 'RESEARCHING' | 'ENGINEERING' | 'PILOT' | 'PRODUCTION' | 'ARCHIVED';
+
+export interface CapabilityCategory {
+  id: number;
+  name: string;
+  description?: string;
+  parentId?: number;
+  displayOrder: number;
+  children: CapabilityCategory[];
+  categoryPath?: string;
+  isLeaf?: boolean;
+}
+
+export interface CapabilityStats {
+  totalCapabilities: number;
+  highRiskCount: number;
+  recent30dIssueCount: number;
+  p0P1CapabilityCount: number;
+  topicBackedCount: number;
+  noOwnerCount: number;
+}
+
+export interface RelatedTopic {
+  id: number;
+  title: string;
+  urgency?: string;
+  result?: string;
+  driId?: number;
+  driName?: string;
+  createdAt?: string;
+}
+
+export interface RelatedIssue {
+  id: number;
+  title: string;
+  priority: string;
+  status: string;
+  productLine: string;
+  projectName?: string;
+  ownerName?: string;
+  impact?: string;
+  latestProgress?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Capability {
+  id: number;
+  name: string;
+  description?: string;
+  categoryId?: number;
+  categoryPath?: string;
+  productLine: string;
+  capabilityType: string;
+  maturityLevel: string;
+  riskStatus: string;
+  maturityEvidence?: string;
+  capabilityGaps?: string;
+  gapActions?: string;
+  knowledgeRecords?: string;
+  knowledgeWikiPageIds?: string;
+  ownerId?: number;
+  owner?: User;
+  backupOwnerId?: number;
+  backupOwner?: User;
+  responsibilityFieldId?: number;
+  responsibilityFieldName?: string;
+  supportMemberIds?: string;
+  hrRiskNote?: string;
+  careScope?: string;
+  tags: string[];
+  relatedTopicIds: number[];
+  relatedTopics: RelatedTopic[];
+  relatedIssueIds: number[];
+  relatedIssues: RelatedIssue[];
+  p0p1IssueCount: number;
+  recent30dIssueCount: number;
+  topicCount: number;
+  generations: CapabilityGeneration[];
+  currentProductionGenerationId?: number;
+  currentProductionGeneration?: CapabilityGeneration;
+  currentResearchGenerationId?: number;
+  currentResearchGeneration?: CapabilityGeneration;
+  nextPlanningGenerationId?: number;
+  nextPlanningGeneration?: CapabilityGeneration;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CapabilityGeneration {
+  id: number;
+  capabilityId: number;
+  name: string;
+  generationCode: string;
+  version?: string;
+  status: GenerationStatus;
+  maturityLevel: MaturityLevel;
+  description?: string;
+  keyImprovements?: string;
+  ownerId?: number;
+  owner?: User;
+  startDate?: string;
+  targetDate?: string;
+  releaseDate?: string;
+  relatedTopicIds: number[];
+  relatedTopics: RelatedTopic[];
+  relatedIssueIds: number[];
+  relatedIssues: RelatedIssue[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface GenerationCreateRequest {
+  name: string;
+  generationCode: string;
+  version?: string;
+  status?: string;
+  maturityLevel?: string;
+  description?: string;
+  keyImprovements?: string;
+  ownerId?: number;
+  startDate?: string;
+  targetDate?: string;
+  releaseDate?: string;
+  relatedTopicIds?: number[];
+  relatedIssueIds?: number[];
+}
+
+export interface GenerationUpdateRequest {
+  name?: string;
+  generationCode?: string;
+  version?: string;
+  status?: string;
+  maturityLevel?: string;
+  description?: string;
+  keyImprovements?: string;
+  ownerId?: number;
+  startDate?: string;
+  targetDate?: string;
+  releaseDate?: string;
+  relatedTopicIds?: number[];
+  relatedIssueIds?: number[];
+}
+
+export interface CapabilityCreateRequest {
+  name: string;
+  description?: string;
+  categoryId?: number;
+  productLine: string;
+  capabilityType: string;
+  maturityLevel: string;
+  riskStatus: string;
+  maturityEvidence?: string;
+  capabilityGaps?: string;
+  gapActions?: string;
+  knowledgeRecords?: string;
+  knowledgeWikiPageIds?: string;
+  ownerId?: number;
+  backupOwnerId?: number;
+  responsibilityFieldId?: number;
+  responsibilityFieldName?: string;
+  supportMemberIds?: string;
+  hrRiskNote?: string;
+  careScope?: string;
+  tags?: string[];
+  relatedTopicIds?: number[];
+  relatedIssueIds?: number[];
+}
+
+export interface CapabilityUpdateRequest {
+  name?: string;
+  description?: string;
+  categoryId?: number;
+  productLine?: string;
+  capabilityType?: string;
+  maturityLevel?: string;
+  riskStatus?: string;
+  maturityEvidence?: string;
+  capabilityGaps?: string;
+  gapActions?: string;
+  knowledgeRecords?: string;
+  knowledgeWikiPageIds?: string;
+  ownerId?: number;
+  backupOwnerId?: number;
+  responsibilityFieldId?: number;
+  responsibilityFieldName?: string;
+  supportMemberIds?: string;
+  hrRiskNote?: string;
+  careScope?: string;
+  tags?: string[];
+  relatedTopicIds?: number[];
+  relatedIssueIds?: number[];
+}
+
+// ============ DeliveryIssue Types ============
+
+export interface DeliveryIssue {
+  id: number;
+  title: string;
+  description?: string;
+  productLine: string;
+  projectName?: string;
+  priority: string;
+  status: string;
+  ownerId?: number;
+  owner?: User;
+  impact?: string;
+  latestProgress?: string;
+  relatedCapabilityIds?: number[];
+  relatedCapabilities?: { id: number; name: string; productLine: string; capabilityType: string }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeliveryIssueCreateRequest {
+  title: string;
+  description?: string;
+  productLine: string;
+  projectName?: string;
+  priority: string;
+  status: string;
+  ownerId?: number;
+  impact?: string;
+  latestProgress?: string;
+  relatedCapabilityIds?: number[];
+}
+
+export interface DeliveryIssueUpdateRequest {
+  title?: string;
+  description?: string;
+  productLine?: string;
+  projectName?: string;
+  priority?: string;
+  status?: string;
+  ownerId?: number;
+  impact?: string;
+  latestProgress?: string;
+  relatedCapabilityIds?: number[];
+}

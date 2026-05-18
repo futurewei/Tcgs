@@ -19,6 +19,22 @@ function toSnakeCaseDeep(input: any): any {
   return input;
 }
 
+function toCamelKey(key: string) {
+  return key.replace(/_([a-z])/g, (_, m) => m.toUpperCase());
+}
+
+function toCamelCaseDeep(input: any): any {
+  if (Array.isArray(input)) return input.map(toCamelCaseDeep);
+  if (input && typeof input === 'object' && input.constructor === Object) {
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(input)) {
+      out[toCamelKey(k)] = toCamelCaseDeep(v);
+    }
+    return out;
+  }
+  return input;
+}
+
 
 const client: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -59,9 +75,15 @@ client.interceptors.request.use(
 
 
 
-// Response interceptor - handle errors
+// Response interceptor - normalize response keys (snake_case -> camelCase)
 client.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const ct = response.headers['content-type'] || '';
+    if (ct.includes('application/json') && response.data) {
+      response.data = toCamelCaseDeep(response.data);
+    }
+    return response;
+  },
   (error: AxiosError) => {
     if (error.response?.status === 401) {
       const authStore = useAuthStore();
